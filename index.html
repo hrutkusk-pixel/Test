@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crystal Light - パズルゲーム</title>
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-primary: #0a0a1a;
+  --bg-secondary: #12122a;
+  --bg-card: rgba(20, 20, 50, 0.85);
+  --accent: #00d4ff;
+  --accent-glow: rgba(0, 212, 255, 0.4);
+  --accent2: #ff6bd5;
+  --accent2-glow: rgba(255, 107, 213, 0.4);
+  --gold: #ffd700;
+  --gold-glow: rgba(255, 215, 0, 0.4);
+  --text: #e0e8ff;
+  --text-dim: #7080a0;
+  --success: #00ff88;
+  --success-glow: rgba(0, 255, 136, 0.5);
+  --tile-bg: rgba(30, 30, 70, 0.9);
+  --tile-border: rgba(60, 70, 120, 0.6);
+  --tile-hover: rgba(50, 50, 100, 0.95);
+}
+
+html, body {
+  width: 100%; height: 100%;
+  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ===== Starfield Background ===== */
+#starfield {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 0; pointer-events: none;
+}
+
+/* ===== Screens ===== */
+.screen {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 1; transition: opacity 0.5s ease, transform 0.5s ease;
+  opacity: 0; pointer-events: none; transform: scale(0.95);
+}
+.screen.active {
+  opacity: 1; pointer-events: all; transform: scale(1);
+}
+
+/* ===== Title Screen ===== */
+#title-screen .title-container { text-align: center; }
+#title-screen h1 {
+  font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 300;
+  letter-spacing: 0.15em; margin-bottom: 0.2em;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; filter: drop-shadow(0 0 30px var(--accent-glow));
+}
+#title-screen .subtitle {
+  font-size: clamp(0.9rem, 2vw, 1.2rem); color: var(--text-dim);
+  letter-spacing: 0.3em; margin-bottom: 3em;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5em;
+  padding: 0.9em 2.5em; border: 1px solid var(--accent);
+  background: rgba(0, 212, 255, 0.08); color: var(--accent);
+  font-size: clamp(0.9rem, 1.5vw, 1.1rem); font-family: inherit;
+  letter-spacing: 0.1em; cursor: pointer; border-radius: 8px;
+  transition: all 0.3s ease; position: relative; overflow: hidden;
+}
+.btn:hover {
+  background: rgba(0, 212, 255, 0.18);
+  box-shadow: 0 0 25px var(--accent-glow), inset 0 0 25px rgba(0, 212, 255, 0.05);
+  transform: translateY(-2px);
+}
+.btn:active { transform: translateY(0); }
+.btn-small { padding: 0.5em 1.2em; font-size: 0.85rem; }
+.btn-gold { border-color: var(--gold); color: var(--gold); background: rgba(255, 215, 0, 0.08); }
+.btn-gold:hover { background: rgba(255, 215, 0, 0.18); box-shadow: 0 0 25px var(--gold-glow); }
+
+/* ===== Level Select ===== */
+#level-screen { padding: 2rem; }
+#level-screen h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 300;
+  letter-spacing: 0.1em; margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 12px; max-width: 600px; width: 100%;
+  max-height: 60vh; overflow-y: auto; padding: 10px;
+  scrollbar-width: thin; scrollbar-color: var(--accent) transparent;
+}
+.level-btn {
+  aspect-ratio: 1; border: 1px solid var(--tile-border);
+  background: var(--tile-bg); border-radius: 10px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; transition: all 0.3s ease; position: relative;
+  font-family: inherit;
+}
+.level-btn:hover {
+  border-color: var(--accent); background: var(--tile-hover);
+  transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+.level-btn .level-num { font-size: 1.3rem; color: var(--text); font-weight: 600; }
+.level-btn .stars { font-size: 0.65rem; color: var(--text-dim); letter-spacing: 2px; }
+.level-btn .stars .earned { color: var(--gold); text-shadow: 0 0 8px var(--gold-glow); }
+.level-btn.locked { opacity: 0.35; cursor: not-allowed; }
+.level-btn.locked:hover { transform: none; border-color: var(--tile-border); box-shadow: none; }
+.level-btn.completed { border-color: rgba(0, 255, 136, 0.3); }
+
+/* ===== Game Screen ===== */
+#game-screen { padding: 1rem; gap: 0.8rem; }
+.game-header {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; max-width: 600px; padding: 0 0.5rem;
+}
+.game-header .level-title {
+  font-size: clamp(1rem, 2vw, 1.3rem); font-weight: 300;
+  letter-spacing: 0.1em; color: var(--accent);
+}
+.game-header .moves-counter {
+  font-size: 0.9rem; color: var(--text-dim); letter-spacing: 0.05em;
+}
+.game-header .moves-counter span { color: var(--text); font-weight: 600; }
+
+.game-board-wrapper {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  flex: 1; width: 100%; max-width: 600px; max-height: calc(100vh - 180px);
+}
+#game-board {
+  display: grid; gap: 3px; padding: 10px;
+  background: rgba(10, 10, 30, 0.5); border-radius: 12px;
+  border: 1px solid rgba(60, 70, 120, 0.3);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.3), inset 0 0 30px rgba(0, 0, 0, 0.2);
+}
+.tile {
+  position: relative; border-radius: 6px; cursor: pointer;
+  background: var(--tile-bg); border: 1px solid var(--tile-border);
+  transition: transform 0.15s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  overflow: hidden;
+}
+.tile:hover:not(.tile-source):not(.tile-target):not(.tile-wall) {
+  border-color: rgba(0, 212, 255, 0.5);
+  box-shadow: 0 0 15px rgba(0, 212, 255, 0.1);
+}
+.tile:active:not(.tile-source):not(.tile-target):not(.tile-wall) { transform: scale(0.93); }
+.tile-wall { background: rgba(15, 15, 35, 0.95); border-color: rgba(40, 40, 80, 0.5); cursor: default; }
+.tile-source {
+  background: radial-gradient(circle, rgba(0, 212, 255, 0.15), var(--tile-bg));
+  border-color: rgba(0, 212, 255, 0.5); cursor: default;
+}
+.tile-target {
+  background: radial-gradient(circle, rgba(255, 107, 213, 0.1), var(--tile-bg));
+  border-color: rgba(255, 107, 213, 0.3); cursor: default;
+}
+.tile-target.lit {
+  background: radial-gradient(circle, rgba(0, 255, 136, 0.2), var(--tile-bg));
+  border-color: rgba(0, 255, 136, 0.5);
+  box-shadow: 0 0 20px var(--success-glow);
+  animation: targetPulse 1.5s ease-in-out infinite;
+}
+@keyframes targetPulse {
+  0%, 100% { box-shadow: 0 0 15px rgba(0, 255, 136, 0.3); }
+  50% { box-shadow: 0 0 30px rgba(0, 255, 136, 0.6); }
+}
+
+/* Tile SVG */
+.tile svg { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+.tile .path-segment {
+  stroke: rgba(60, 70, 120, 0.6); stroke-width: 6; fill: none;
+  stroke-linecap: round; transition: stroke 0.4s ease, filter 0.4s ease;
+}
+.tile .path-segment.lit {
+  stroke: var(--accent); filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+.tile .source-icon { fill: var(--accent); filter: drop-shadow(0 0 10px var(--accent-glow)); }
+.tile .target-icon { fill: var(--accent2); filter: drop-shadow(0 0 8px var(--accent2-glow)); transition: fill 0.4s, filter 0.4s; }
+.tile .target-icon.lit { fill: var(--success); filter: drop-shadow(0 0 12px var(--success-glow)); }
+
+/* Rotation animation */
+.tile .tile-inner {
+  width: 100%; height: 100%; position: absolute; top: 0; left: 0;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.game-footer {
+  display: flex; gap: 0.8rem; align-items: center; justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ===== Win Overlay ===== */
+#win-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(5, 5, 15, 0.85); z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.5s ease;
+  backdrop-filter: blur(8px);
+}
+#win-overlay.active { opacity: 1; pointer-events: all; }
+.win-card {
+  background: var(--bg-card); border: 1px solid rgba(0, 255, 136, 0.3);
+  border-radius: 16px; padding: 2.5rem 3rem; text-align: center;
+  box-shadow: 0 0 60px rgba(0, 255, 136, 0.1);
+  transform: scale(0.8); transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+#win-overlay.active .win-card { transform: scale(1); }
+.win-card h2 {
+  font-size: 2rem; font-weight: 300; margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, var(--success), var(--accent));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.win-card .win-stars {
+  font-size: 2.5rem; margin: 1rem 0; letter-spacing: 8px;
+  filter: drop-shadow(0 0 10px var(--gold-glow));
+}
+.win-card .win-stars .empty { opacity: 0.2; }
+.win-card .win-moves { color: var(--text-dim); margin-bottom: 1.5rem; font-size: 0.95rem; }
+.win-card .win-buttons { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; }
+
+/* ===== Canvas overlay for particles ===== */
+#particle-canvas {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 99; pointer-events: none;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+
+/* ===== Responsive ===== */
+@media (max-width: 500px) {
+  .game-header { flex-direction: column; gap: 0.3rem; text-align: center; }
+  .win-card { padding: 1.5rem 2rem; }
+  .level-grid { grid-template-columns: repeat(auto-fill, minmax(65px, 1fr)); gap: 8px; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+<canvas id="particle-canvas"></canvas>
+
+<!-- Title Screen -->
+<div id="title-screen" class="screen active">
+  <div class="title-container">
+    <h1>CRYSTAL LIGHT</h1>
+    <div class="subtitle">光のパズル</div>
+    <button class="btn" onclick="showScreen('level-screen')">ゲームスタート</button>
+  </div>
+</div>
+
+<!-- Level Select Screen -->
+<div id="level-screen" class="screen">
+  <h2>レベル選択</h2>
+  <div class="level-grid" id="level-grid"></div>
+  <div style="margin-top: 1.5rem;">
+    <button class="btn btn-small" onclick="showScreen('title-screen')">← 戻る</button>
+  </div>
+</div>
+
+<!-- Game Screen -->
+<div id="game-screen" class="screen">
+  <div class="game-header">
+    <span class="level-title" id="level-title">レベル 1</span>
+    <span class="moves-counter">手数: <span id="moves-count">0</span></span>
+  </div>
+  <div class="game-board-wrapper">
+    <div id="game-board"></div>
+  </div>
+  <div class="game-footer">
+    <button class="btn btn-small" onclick="undoMove()">↩ 元に戻す</button>
+    <button class="btn btn-small" onclick="resetLevel()">↻ リセット</button>
+    <button class="btn btn-small" onclick="showScreen('level-screen')">✕ レベル選択</button>
+  </div>
+</div>
+
+<!-- Win Overlay -->
+<div id="win-overlay">
+  <div class="win-card">
+    <h2>クリア！</h2>
+    <div class="win-stars" id="win-stars">★★★</div>
+    <div class="win-moves" id="win-moves">手数: 0</div>
+    <div class="win-buttons">
+      <button class="btn btn-small" onclick="resetLevel(); hideWin();">もう一度</button>
+      <button class="btn btn-small btn-gold" id="btn-next-level" onclick="nextLevel()">次のレベル →</button>
+      <button class="btn btn-small" onclick="hideWin(); showScreen('level-screen');">レベル選択</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================================================================
+// Crystal Light - A Light Beam Routing Puzzle Game
+// ===================================================================
+
+// ===== Audio System =====
+const AudioSystem = (() => {
+  let ctx = null;
+  const getCtx = () => {
+    if (!ctx) { try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} }
+    return ctx;
+  };
+  const play = (freq, type, dur, vol = 0.15) => {
+    const c = getCtx(); if (!c) return;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, c.currentTime);
+    g.gain.setValueAtTime(vol, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(); o.stop(c.currentTime + dur);
+  };
+  return {
+    rotate()  { play(800, 'sine', 0.1, 0.08); play(1200, 'sine', 0.08, 0.06); },
+    connect() { play(600, 'triangle', 0.2, 0.1); },
+    win()     {
+      [0, 100, 200, 350, 500].forEach((t, i) =>
+        setTimeout(() => play([523, 659, 784, 1047, 1319][i], 'sine', 0.3, 0.12), t)
+      );
+    },
+    undo()    { play(400, 'sine', 0.1, 0.06); },
+    error()   { play(200, 'square', 0.15, 0.05); },
+  };
+})();
+
+// ===== Direction Helpers =====
+// Directions: 0=up, 1=right, 2=down, 3=left
+const DIR = { UP: 0, RIGHT: 1, DOWN: 2, LEFT: 3 };
+const DX = [0, 1, 0, -1];
+const DY = [-1, 0, 1, 0];
+const opposite = d => (d + 2) % 4;
+
+// ===== Tile Types =====
+// Each tile type defines which sides connect to which.
+// connections: array of [sideA, sideB] pairs
+// 'straight': connects 0-2 (up-down)
+// 'corner':   connects 0-1 (up-right)
+// 'tee':      connects 0-1-2 (up-right-down) = T junction
+// 'cross':    connects 0-1-2-3 (all four) - not rotatable
+// 'source':   emits light from side (special)
+// 'target':   receives light (special)
+// 'empty':    no connections
+// 'wall':     blocking tile
+
+const TILE_DEFS = {
+  empty:    { connections: [], rotatable: false },
+  wall:     { connections: [], rotatable: false },
+  straight: { connections: [[0, 2]], rotatable: true },
+  corner:   { connections: [[0, 1]], rotatable: true },
+  tee:      { connections: [[0, 1], [0, 3]], rotatable: true },
+  cross:    { connections: [[0, 2], [1, 3]], rotatable: false },
+  source:   { connections: [], rotatable: false }, // special handling
+  target:   { connections: [], rotatable: false }, // special handling
+};
+
+// Rotate connections by `r` steps clockwise
+function rotateConnections(connections, r) {
+  return connections.map(pair => pair.map(d => (d + r) % 4));
+}
+
+// Get all sides connected from a given entry side
+function getConnectedSides(type, rotation, entrySide) {
+  if (type === 'empty' || type === 'wall') return [];
+  if (type === 'source' || type === 'target') return []; // handled separately
+  const conns = rotateConnections(TILE_DEFS[type].connections, rotation);
+  const connected = new Set();
+  // Find all sides reachable from entrySide through connections
+  connected.add(entrySide);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [a, b] of conns) {
+      if (connected.has(a) && !connected.has(b)) { connected.add(b); changed = true; }
+      if (connected.has(b) && !connected.has(a)) { connected.add(a); changed = true; }
+    }
+  }
+  connected.delete(entrySide);
+  return [...connected];
+}
+
+// Get all sides that have any connection (for rendering)
+function getAllConnectedSides(type, rotation) {
+  if (type === 'empty' || type === 'wall') return [];
+  const conns = rotateConnections(TILE_DEFS[type].connections, rotation);
+  const sides = new Set();
+  for (const [a, b] of conns) { sides.add(a); sides.add(b); }
+  return [...sides];
+}
+
+// ===== Level Definitions =====
+// Grid cell: { type, rotation, sourceDirs?, targetDirs? }
+// sourceDirs: array of directions the source emits light
+// targetDirs: array of directions the target accepts light from
+// initialRotation: the scrambled rotation (optional, auto-generated)
+
+function defineLevels() {
+  // Helper: create a tile
+  const E = () => ({ type: 'empty', rotation: 0 });
+  const W = () => ({ type: 'wall', rotation: 0 });
+  const S = (r, dirs) => ({ type: 'straight', rotation: r, solutionRot: r });
+  const C = (r) => ({ type: 'corner', rotation: r, solutionRot: r });
+  const T = (r) => ({ type: 'tee', rotation: r, solutionRot: r });
+  const X = () => ({ type: 'cross', rotation: 0, solutionRot: 0 });
+  const SRC = (dirs) => ({ type: 'source', rotation: 0, sourceDirs: dirs });
+  const TGT = (dirs) => ({ type: 'target', rotation: 0, targetDirs: dirs });
+
+  return [
+    // Level 1: 3x3 simple intro - straight line
+    {
+      name: 'はじめの光', rows: 3, cols: 3,
+      par: 2,
+      grid: [
+        [E(),      SRC([2]),  E()     ],
+        [E(),      S(0),      E()     ],
+        [E(),      TGT([0]),  E()     ],
+      ]
+    },
+    // Level 2: 3x3 corner introduction
+    {
+      name: '曲がる光', rows: 3, cols: 3,
+      par: 3,
+      grid: [
+        [SRC([1]),  S(1),     C(2)   ],
+        [E(),       E(),      S(0)   ],
+        [E(),       E(),      TGT([0])],
+      ]
+    },
+    // Level 3: 4x4
+    {
+      name: '二つの道', rows: 4, cols: 4,
+      par: 4,
+      grid: [
+        [SRC([2]),  E(),      E(),       E()     ],
+        [S(0),      E(),      SRC([2]),  E()     ],
+        [C(1),      S(1),     C(3),      E()     ],
+        [E(),       TGT([0]), E(),       E()     ],
+      ]
+    },
+    // Level 4: 4x4 with T-junction
+    {
+      name: 'T字路', rows: 4, cols: 4,
+      par: 5,
+      grid: [
+        [E(),       SRC([2]),  E(),       E()      ],
+        [E(),       T(1),      S(1),      TGT([3]) ],
+        [E(),       S(0),      E(),       E()      ],
+        [E(),       TGT([0]), E(),       E()      ],
+      ]
+    },
+    // Level 5: 4x4 more complex
+    {
+      name: '迷路の光', rows: 4, cols: 4,
+      par: 6,
+      grid: [
+        [SRC([1]),  C(2),     E(),       E()      ],
+        [E(),       S(0),     E(),       E()      ],
+        [E(),       C(1),     S(1),      C(2)     ],
+        [E(),       E(),      E(),       TGT([0]) ],
+      ]
+    },
+    // Level 6: 5x5
+    {
+      name: '広がる光', rows: 5, cols: 5,
+      par: 7,
+      grid: [
+        [SRC([1]),  S(1),     C(2),     E(),       E()      ],
+        [E(),       E(),      S(0),     E(),       E()      ],
+        [E(),       E(),      T(1),     S(1),     TGT([3]) ],
+        [E(),       E(),      S(0),     E(),       E()      ],
+        [E(),       E(),      TGT([0]),E(),       E()      ],
+      ]
+    },
+    // Level 7: 5x5 with walls
+    {
+      name: '壁の迷路', rows: 5, cols: 5,
+      par: 6,
+      grid: [
+        [SRC([2]),  E(),      W(),      E(),       E()      ],
+        [S(0),      E(),      W(),      E(),       E()      ],
+        [C(1),      S(1),     C(2),     E(),       E()      ],
+        [E(),       E(),      S(0),     E(),       E()      ],
+        [E(),       E(),      TGT([0]),E(),       E()      ],
+      ]
+    },
+    // Level 8: 5x5 cross
+    {
+      name: '交差する光', rows: 5, cols: 5,
+      par: 8,
+      grid: [
+        [E(),       SRC([2]), E(),      E(),       E()      ],
+        [E(),       S(0),     E(),      E(),       E()      ],
+        [SRC([1]),  X(),      S(1),     S(1),     TGT([3]) ],
+        [E(),       S(0),     E(),      E(),       E()      ],
+        [E(),       TGT([0]),E(),      E(),       E()      ],
+      ]
+    },
+    // Level 9: 5x5 two sources, three targets
+    {
+      name: '光の分岐', rows: 5, cols: 5,
+      par: 9,
+      grid: [
+        [SRC([1]),  T(2),     S(1),     C(2),      E()      ],
+        [E(),       S(0),     E(),      S(0),      E()      ],
+        [E(),       TGT([0]),E(),      T(1),      TGT([3]) ],
+        [E(),       E(),      E(),      S(0),      E()      ],
+        [E(),       E(),      E(),      TGT([0]), E()      ],
+      ]
+    },
+    // Level 10: 6x6
+    {
+      name: 'クリスタルの間', rows: 6, cols: 6,
+      par: 10,
+      grid: [
+        [SRC([1]),  S(1),     C(2),     E(),       E(),      E()      ],
+        [E(),       E(),      S(0),     E(),       W(),      E()      ],
+        [E(),       E(),      C(1),     S(1),      C(2),     E()      ],
+        [E(),       E(),      E(),      E(),       S(0),     E()      ],
+        [E(),       E(),      E(),      E(),       C(1),     TGT([3]) ],
+        [E(),       E(),      E(),      E(),       E(),      E()      ],
+      ]
+    },
+    // Level 11: 6x6 multi-path
+    {
+      name: '双子の光', rows: 6, cols: 6,
+      par: 10,
+      grid: [
+        [SRC([2]),  E(),      E(),      E(),       SRC([2]), E()      ],
+        [C(1),      S(1),     C(2),     E(),       C(3),     E()      ],
+        [E(),       E(),      S(0),     E(),       S(0),     E()      ],
+        [E(),       E(),      C(1),     S(1),     X(),      S(1)     ],
+        [E(),       E(),      E(),      E(),       S(0),     TGT([3]) ],
+        [E(),       E(),      E(),      E(),       TGT([0]),E()      ],
+      ]
+    },
+    // Level 12: 6x6 with T-junctions
+    {
+      name: '複雑な経路', rows: 6, cols: 6,
+      par: 11,
+      grid: [
+        [E(),       SRC([2]), E(),      E(),       E(),      E()      ],
+        [E(),       T(1),     S(1),     C(2),      E(),      E()      ],
+        [E(),       S(0),     E(),      S(0),      E(),      E()      ],
+        [E(),       C(1),     S(1),     T(0),      S(1),     TGT([3]) ],
+        [E(),       E(),      E(),      S(0),      E(),      E()      ],
+        [E(),       TGT([0]),E(),      TGT([0]), E(),      E()      ],
+      ]
+    },
+    // Level 13: 6x6 winding
+    {
+      name: 'うねる光', rows: 6, cols: 6,
+      par: 10,
+      grid: [
+        [SRC([1]),  S(1),     S(1),     C(2),      E(),      E()      ],
+        [E(),       E(),      E(),      S(0),      E(),      E()      ],
+        [E(),       E(),      E(),      C(1),      C(2),     E()      ],
+        [E(),       E(),      E(),      E(),       S(0),     E()      ],
+        [E(),       TGT([3]),S(1),     S(1),      C(3),     E()      ],
+        [E(),       E(),      E(),      E(),       E(),      E()      ],
+      ]
+    },
+    // Level 14: 7x7 big challenge
+    {
+      name: '大いなる光', rows: 7, cols: 7,
+      par: 14,
+      grid: [
+        [SRC([1]),  C(2),     E(),      W(),       E(),      E(),      E()      ],
+        [E(),       S(0),     E(),      W(),       E(),      SRC([2]), E()      ],
+        [E(),       C(1),     S(1),     S(1),      S(1),     T(3),     E()      ],
+        [E(),       E(),      E(),      E(),       E(),      S(0),     E()      ],
+        [E(),       E(),      TGT([1]),S(1),      S(1),     C(3),     E()      ],
+        [E(),       E(),      E(),      E(),       E(),      E(),      E()      ],
+        [E(),       E(),      E(),      E(),       E(),      TGT([0]),E()      ],
+      ]
+    },
+    // Level 15: 7x7 multi-target
+    {
+      name: '星の光', rows: 7, cols: 7,
+      par: 15,
+      grid: [
+        [E(),       E(),      E(),      SRC([2]),  E(),      E(),      E()      ],
+        [E(),       E(),      E(),      T(1),      S(1),     TGT([3]),E()      ],
+        [E(),       E(),      E(),      S(0),      E(),      E(),      E()      ],
+        [TGT([1]),  S(1),     S(1),     X(),       S(1),     S(1),    TGT([3]) ],
+        [E(),       E(),      E(),      S(0),      E(),      E(),      E()      ],
+        [E(),       E(),      E(),      T(1),      S(1),     TGT([3]),E()      ],
+        [E(),       E(),      E(),      TGT([0]), E(),      E(),      E()      ],
+      ]
+    },
+    // Level 16: 5x5 tricky
+    {
+      name: '光のパラドックス', rows: 5, cols: 5,
+      par: 8,
+      grid: [
+        [C(1),      S(1),     SRC([3]), E(),       E()      ],
+        [S(0),      E(),      E(),      E(),       E()      ],
+        [C(1),      S(1),     T(0),     S(1),     TGT([3]) ],
+        [E(),       E(),      S(0),     E(),       E()      ],
+        [E(),       E(),      TGT([0]),E(),       E()      ],
+      ]
+    },
+    // Level 17: 6x6 spiral
+    {
+      name: '螺旋の光', rows: 6, cols: 6,
+      par: 12,
+      grid: [
+        [SRC([1]),  S(1),     S(1),     S(1),      C(2),     E()      ],
+        [E(),       E(),      E(),      E(),       S(0),     E()      ],
+        [E(),       C(0),     S(1),     C(2),      C(3),     E()      ],
+        [E(),       S(0),     E(),      TGT([0]), E(),      E()      ],
+        [E(),       C(1),     S(1),     S(1),      S(1),     TGT([3]) ],
+        [E(),       E(),      E(),      E(),       E(),      E()      ],
+      ]
+    },
+    // Level 18: 7x7 walls maze
+    {
+      name: '壁の迷宮', rows: 7, cols: 7,
+      par: 14,
+      grid: [
+        [SRC([2]),  E(),      W(),      E(),       E(),      E(),      E()      ],
+        [S(0),      E(),      W(),      E(),       SRC([2]), E(),      E()      ],
+        [C(1),      S(1),     C(2),     E(),       S(0),     E(),      E()      ],
+        [E(),       E(),      S(0),     W(),       C(1),     S(1),    TGT([3]) ],
+        [E(),       E(),      C(1),     S(1),      C(2),     E(),      E()      ],
+        [E(),       E(),      E(),      E(),       S(0),     E(),      E()      ],
+        [E(),       E(),      E(),      E(),       TGT([0]),E(),      E()      ],
+      ]
+    },
+    // Level 19: 7x7 complex
+    {
+      name: '光の交響曲', rows: 7, cols: 7,
+      par: 16,
+      grid: [
+        [E(),       SRC([2]), E(),      E(),       E(),      SRC([2]),E()      ],
+        [E(),       T(1),     S(1),     C(2),      E(),      T(3),    E()      ],
+        [E(),       S(0),     E(),      S(0),      E(),      S(0),    E()      ],
+        [E(),       C(1),     S(1),     X(),       S(1),     C(3),    E()      ],
+        [E(),       E(),      E(),      S(0),      E(),      E(),      E()      ],
+        [TGT([1]),  S(1),     S(1),     T(0),      S(1),     S(1),   TGT([3]) ],
+        [E(),       E(),      E(),      TGT([0]), E(),      E(),      E()      ],
+      ]
+    },
+    // Level 20: 8x8 grand finale
+    {
+      name: '究極の光', rows: 8, cols: 8,
+      par: 20,
+      grid: [
+        [SRC([1]),  S(1),     C(2),     E(),       W(),      E(),      E(),      E()      ],
+        [E(),       E(),      S(0),     E(),       W(),      SRC([2]),E(),      E()      ],
+        [E(),       E(),      T(1),     S(1),      S(1),     T(3),    E(),      E()      ],
+        [E(),       E(),      S(0),     E(),       E(),      S(0),    E(),      E()      ],
+        [E(),       E(),      C(1),     S(1),      S(1),     X(),     S(1),    TGT([3]) ],
+        [E(),       E(),      E(),      E(),       E(),      S(0),    E(),      E()      ],
+        [TGT([1]),  S(1),     S(1),     S(1),      S(1),     C(3),    E(),      E()      ],
+        [E(),       E(),      E(),      E(),       E(),      E(),      E(),     TGT([0]) ],
+      ]
+    },
+  ];
+}
+
+// ===== Game State =====
+let levels = [];
+let currentLevel = 0;
+let grid = [];        // current puzzle state: [{type, rotation, ...}]
+let gridRows = 0;
+let gridCols = 0;
+let moves = 0;
+let moveHistory = [];
+let litTiles = new Set();   // set of "r,c" that have light
+let litSegments = [];       // [{r,c,sides:[]}] for rendering lit paths
+let targetLit = new Set();
+let totalTargets = 0;
+let isWon = false;
+let savedProgress = {};     // levelIndex -> { completed, stars, bestMoves }
+
+// ===== Initialization =====
+function init() {
+  levels = defineLevels();
+  loadProgress();
+  initStarfield();
+  buildLevelGrid();
+  showScreen('title-screen');
+}
+
+function loadProgress() {
+  try {
+    const d = localStorage.getItem('crystal-light-progress');
+    if (d) savedProgress = JSON.parse(d);
+  } catch(e) {}
+}
+function saveProgress() {
+  try { localStorage.setItem('crystal-light-progress', JSON.stringify(savedProgress)); } catch(e) {}
+}
+
+// ===== Screen Management =====
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id === 'level-screen') buildLevelGrid();
+}
+
+// ===== Starfield =====
+function initStarfield() {
+  const canvas = document.getElementById('starfield');
+  const ctx = canvas.getContext('2d');
+  let stars = [];
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    stars = Array.from({length: 200}, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.5 + 0.3,
+      a: Math.random(),
+      speed: Math.random() * 0.005 + 0.002,
+      phase: Math.random() * Math.PI * 2,
+    }));
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const t = performance.now() / 1000;
+    for (const s of stars) {
+      const alpha = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * s.speed * 60 + s.phase));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(180, 200, 255, ${alpha})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+// ===== Level Grid =====
+function buildLevelGrid() {
+  const container = document.getElementById('level-grid');
+  container.innerHTML = '';
+  levels.forEach((lvl, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'level-btn';
+    const unlocked = i === 0 || (savedProgress[i-1] && savedProgress[i-1].completed);
+    if (!unlocked) btn.classList.add('locked');
+    if (savedProgress[i] && savedProgress[i].completed) btn.classList.add('completed');
+    const starCount = savedProgress[i] ? savedProgress[i].stars : 0;
+    const starsHtml = [1,2,3].map(s =>
+      `<span class="${s <= starCount ? 'earned' : ''}">★</span>`
+    ).join('');
+    btn.innerHTML = `<span class="level-num">${i + 1}</span><span class="stars">${starsHtml}</span>`;
+    if (unlocked) {
+      btn.addEventListener('click', () => startLevel(i));
+    }
+    container.appendChild(btn);
+  });
+}
+
+// ===== Start Level =====
+function startLevel(index) {
+  currentLevel = index;
+  const lvl = levels[index];
+  gridRows = lvl.rows;
+  gridCols = lvl.cols;
+  moves = 0;
+  moveHistory = [];
+  isWon = false;
+  litTiles = new Set();
+  litSegments = [];
+  targetLit = new Set();
+  totalTargets = 0;
+
+  // Deep copy grid and scramble rotations
+  grid = lvl.grid.map(row => row.map(cell => {
+    const c = { ...cell };
+    if (TILE_DEFS[c.type] && TILE_DEFS[c.type].rotatable) {
+      // Scramble: rotate randomly (but not to solution rotation for non-trivial levels)
+      let scrambled;
+      do {
+        scrambled = Math.floor(Math.random() * 4);
+      } while (scrambled === c.solutionRot && lvl.par > 2);
+      c.rotation = scrambled;
+    }
+    if (c.type === 'target') totalTargets++;
+    return c;
+  }));
+
+  document.getElementById('level-title').textContent = `${lvl.name} (Lv.${index + 1})`;
+  document.getElementById('moves-count').textContent = '0';
+
+  renderBoard();
+  calculateLight();
+  renderLight();
+  showScreen('game-screen');
+}
+
+// ===== Render Board =====
+function renderBoard() {
+  const board = document.getElementById('game-board');
+  // Calculate tile size
+  const wrapper = document.querySelector('.game-board-wrapper');
+  const maxW = Math.min(600, window.innerWidth - 40);
+  const maxH = window.innerHeight - 200;
+  const tileSize = Math.min(
+    Math.floor((maxW - 20 - (gridCols - 1) * 3) / gridCols),
+    Math.floor((maxH - 20 - (gridRows - 1) * 3) / gridRows),
+    80
+  );
+
+  board.style.gridTemplateColumns = `repeat(${gridCols}, ${tileSize}px)`;
+  board.style.gridTemplateRows = `repeat(${gridRows}, ${tileSize}px)`;
+  board.innerHTML = '';
+
+  for (let r = 0; r < gridRows; r++) {
+    for (let c = 0; c < gridCols; c++) {
+      const cell = grid[r][c];
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.dataset.row = r;
+      tile.dataset.col = c;
+
+      if (cell.type === 'wall') tile.classList.add('tile-wall');
+      if (cell.type === 'source') tile.classList.add('tile-source');
+      if (cell.type === 'target') tile.classList.add('tile-target');
+
+      // Inner container for rotation
+      const inner = document.createElement('div');
+      inner.className = 'tile-inner';
+      inner.style.transform = `rotate(${cell.rotation * 90}deg)`;
+
+      // SVG
+      const svg = createTileSVG(cell, tileSize);
+      inner.appendChild(svg);
+      tile.appendChild(inner);
+
+      // Click handler
+      if (TILE_DEFS[cell.type] && TILE_DEFS[cell.type].rotatable) {
+        tile.addEventListener('click', () => rotateTile(r, c));
+      }
+
+      board.appendChild(tile);
+    }
+  }
+}
+
+// ===== Create Tile SVG =====
+function createTileSVG(cell, size) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('width', size);
+  svg.setAttribute('height', size);
+
+  const mid = 50;
+
+  if (cell.type === 'source') {
+    // Draw source: a glowing diamond/star
+    const dirs = cell.sourceDirs || [0];
+    // Draw direction indicators
+    for (const d of dirs) {
+      const line = document.createElementNS(ns, 'line');
+      const endX = mid + DX[d] * 45;
+      const endY = mid + DY[d] * 45;
+      line.setAttribute('x1', mid);
+      line.setAttribute('y1', mid);
+      line.setAttribute('x2', endX);
+      line.setAttribute('y2', endY);
+      line.classList.add('path-segment');
+      line.classList.add('lit');
+      svg.appendChild(line);
+    }
+    // Center circle
+    const circle = document.createElementNS(ns, 'circle');
+    circle.setAttribute('cx', mid);
+    circle.setAttribute('cy', mid);
+    circle.setAttribute('r', 12);
+    circle.classList.add('source-icon');
+    svg.appendChild(circle);
+    // Inner glow
+    const inner = document.createElementNS(ns, 'circle');
+    inner.setAttribute('cx', mid);
+    inner.setAttribute('cy', mid);
+    inner.setAttribute('r', 6);
+    inner.setAttribute('fill', '#fff');
+    inner.setAttribute('opacity', '0.8');
+    svg.appendChild(inner);
+    return svg;
+  }
+
+  if (cell.type === 'target') {
+    const dirs = cell.targetDirs || [0];
+    for (const d of dirs) {
+      const line = document.createElementNS(ns, 'line');
+      const endX = mid + DX[d] * 45;
+      const endY = mid + DY[d] * 45;
+      line.setAttribute('x1', mid);
+      line.setAttribute('y1', mid);
+      line.setAttribute('x2', endX);
+      line.setAttribute('y2', endY);
+      line.classList.add('path-segment');
+      line.dataset.dir = d;
+      svg.appendChild(line);
+    }
+    // Diamond
+    const diamond = document.createElementNS(ns, 'polygon');
+    diamond.setAttribute('points', `${mid},${mid-14} ${mid+10},${mid} ${mid},${mid+14} ${mid-10},${mid}`);
+    diamond.classList.add('target-icon');
+    svg.appendChild(diamond);
+    return svg;
+  }
+
+  if (cell.type === 'wall' || cell.type === 'empty') {
+    if (cell.type === 'wall') {
+      // Draw X pattern for wall
+      const l1 = document.createElementNS(ns, 'line');
+      l1.setAttribute('x1', 30); l1.setAttribute('y1', 30);
+      l1.setAttribute('x2', 70); l1.setAttribute('y2', 70);
+      l1.setAttribute('stroke', 'rgba(40,40,80,0.4)'); l1.setAttribute('stroke-width', 2);
+      svg.appendChild(l1);
+      const l2 = document.createElementNS(ns, 'line');
+      l2.setAttribute('x1', 70); l2.setAttribute('y1', 30);
+      l2.setAttribute('x2', 30); l2.setAttribute('y2', 70);
+      l2.setAttribute('stroke', 'rgba(40,40,80,0.4)'); l2.setAttribute('stroke-width', 2);
+      svg.appendChild(l2);
+    }
+    return svg;
+  }
+
+  // Path tiles: draw paths based on BASE orientation (rotation 0).
+  // The SVG container rotates via CSS.
+  const conns = TILE_DEFS[cell.type].connections;
+  for (const [a, b] of conns) {
+    // Draw path from center to side A, and center to side B
+    for (const d of [a, b]) {
+      const line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', mid);
+      line.setAttribute('y1', mid);
+      line.setAttribute('x2', mid + DX[d] * 45);
+      line.setAttribute('y2', mid + DY[d] * 45);
+      line.classList.add('path-segment');
+      line.dataset.dir = d;
+      svg.appendChild(line);
+    }
+  }
+  // Center node
+  const dot = document.createElementNS(ns, 'circle');
+  dot.setAttribute('cx', mid);
+  dot.setAttribute('cy', mid);
+  dot.setAttribute('r', 5);
+  dot.setAttribute('fill', 'rgba(60, 70, 120, 0.8)');
+  dot.classList.add('center-dot');
+  svg.appendChild(dot);
+
+  return svg;
+}
+
+// ===== Rotate Tile =====
+function rotateTile(r, c) {
+  if (isWon) return;
+  const cell = grid[r][c];
+  if (!TILE_DEFS[cell.type] || !TILE_DEFS[cell.type].rotatable) return;
+
+  AudioSystem.rotate();
+  moveHistory.push({ r, c, prevRotation: cell.rotation });
+  cell.rotation = (cell.rotation + 1) % 4;
+  moves++;
+  document.getElementById('moves-count').textContent = moves;
+
+  // Animate
+  const tile = document.querySelector(`.tile[data-row="${r}"][data-col="${c}"]`);
+  const inner = tile.querySelector('.tile-inner');
+  inner.style.transform = `rotate(${cell.rotation * 90}deg)`;
+
+  // Recalculate light
+  calculateLight();
+  renderLight();
+  checkWin();
+}
+
+// ===== Undo =====
+function undoMove() {
+  if (moveHistory.length === 0 || isWon) { AudioSystem.error(); return; }
+  AudioSystem.undo();
+  const last = moveHistory.pop();
+  grid[last.r][last.c].rotation = last.prevRotation;
+  moves--;
+  document.getElementById('moves-count').textContent = moves;
+
+  const tile = document.querySelector(`.tile[data-row="${last.r}"][data-col="${last.c}"]`);
+  const inner = tile.querySelector('.tile-inner');
+  inner.style.transform = `rotate(${last.prevRotation * 90}deg)`;
+
+  calculateLight();
+  renderLight();
+}
+
+// ===== Reset =====
+function resetLevel() {
+  startLevel(currentLevel);
+}
+
+// ===== Light Calculation (BFS from sources) =====
+function calculateLight() {
+  litTiles = new Set();
+  litSegments = [];
+  targetLit = new Set();
+
+  // Find all sources
+  const queue = []; // {r, c, dir} - dir is the direction light is TRAVELING
+  for (let r = 0; r < gridRows; r++) {
+    for (let c = 0; c < gridCols; c++) {
+      if (grid[r][c].type === 'source') {
+        litTiles.add(`${r},${c}`);
+        const dirs = grid[r][c].sourceDirs || [];
+        for (const d of dirs) {
+          queue.push({ r, c, dir: d, fromR: r, fromC: c });
+        }
+      }
+    }
+  }
+
+  const visited = new Set(); // "r,c,dir" to avoid infinite loops
+  const segmentMap = {}; // "r,c" -> Set of lit sides
+
+  while (queue.length > 0) {
+    const { r: fromR, c: fromC, dir } = queue.shift();
+    const nr = fromR + DY[dir];
+    const nc = fromC + DX[dir];
+
+    if (nr < 0 || nr >= gridRows || nc < 0 || nc >= gridCols) continue;
+
+    const key = `${nr},${nc},${dir}`;
+    if (visited.has(key)) continue;
+    visited.add(key);
+
+    const cell = grid[nr][nc];
+    if (cell.type === 'wall' || cell.type === 'empty') continue;
+
+    const entrySide = opposite(dir); // The side light enters from
+
+    if (cell.type === 'target') {
+      const acceptDirs = cell.targetDirs || [];
+      if (acceptDirs.includes(entrySide)) {
+        litTiles.add(`${nr},${nc}`);
+        targetLit.add(`${nr},${nc}`);
+        // Record lit segment
+        if (!segmentMap[`${nr},${nc}`]) segmentMap[`${nr},${nc}`] = new Set();
+        segmentMap[`${nr},${nc}`].add(entrySide);
+      }
+      continue;
+    }
+
+    if (cell.type === 'source') continue; // Light doesn't re-enter sources
+
+    // For path tiles, check if the entry side is connected
+    const connectedSides = getConnectedSides(cell.type, cell.rotation, entrySide);
+    if (connectedSides.length === 0) continue;
+
+    litTiles.add(`${nr},${nc}`);
+    if (!segmentMap[`${nr},${nc}`]) segmentMap[`${nr},${nc}`] = new Set();
+    segmentMap[`${nr},${nc}`].add(entrySide);
+
+    for (const exitSide of connectedSides) {
+      segmentMap[`${nr},${nc}`].add(exitSide);
+      queue.push({ r: nr, c: nc, dir: exitSide, fromR: nr, fromC: nc });
+    }
+  }
+
+  litSegments = Object.entries(segmentMap).map(([key, sides]) => {
+    const [r, c] = key.split(',').map(Number);
+    return { r, c, sides: [...sides] };
+  });
+}
+
+// ===== Render Light =====
+function renderLight() {
+  // Reset all segments to unlit
+  document.querySelectorAll('.path-segment').forEach(el => el.classList.remove('lit'));
+  document.querySelectorAll('.center-dot').forEach(el => el.setAttribute('fill', 'rgba(60, 70, 120, 0.8)'));
+  document.querySelectorAll('.target-icon').forEach(el => el.classList.remove('lit'));
+  document.querySelectorAll('.tile-target').forEach(el => el.classList.remove('lit'));
+
+  // Light up source segments (always lit)
+  for (let r = 0; r < gridRows; r++) {
+    for (let c = 0; c < gridCols; c++) {
+      if (grid[r][c].type === 'source') {
+        const tile = document.querySelector(`.tile[data-row="${r}"][data-col="${c}"]`);
+        if (tile) tile.querySelectorAll('.path-segment').forEach(s => s.classList.add('lit'));
+      }
+    }
+  }
+
+  // Light up path segments
+  for (const seg of litSegments) {
+    const tile = document.querySelector(`.tile[data-row="${seg.r}"][data-col="${seg.c}"]`);
+    if (!tile) continue;
+
+    const cell = grid[seg.r][seg.c];
+
+    if (cell.type === 'target') {
+      // Light the target
+      tile.classList.add('lit');
+      tile.querySelectorAll('.target-icon').forEach(el => el.classList.add('lit'));
+      // Light the path segments pointing to lit sides
+      tile.querySelectorAll('.path-segment').forEach(el => {
+        const d = parseInt(el.dataset.dir);
+        if (seg.sides.includes(d)) el.classList.add('lit');
+      });
+      continue;
+    }
+
+    // For path tiles, we need to map lit sides (in world space) to SVG segments (in local/base space)
+    // SVG is drawn at rotation=0, CSS rotates. So we need to un-rotate the sides.
+    const rotation = cell.rotation;
+    const baseSides = seg.sides.map(d => ((d - rotation) % 4 + 4) % 4);
+
+    tile.querySelectorAll('.path-segment').forEach(el => {
+      const d = parseInt(el.dataset.dir);
+      if (baseSides.includes(d)) el.classList.add('lit');
+    });
+
+    // Light center dot
+    const dot = tile.querySelector('.center-dot');
+    if (dot) {
+      dot.setAttribute('fill', 'rgba(0, 212, 255, 0.9)');
+    }
+  }
+}
+
+// ===== Check Win =====
+function checkWin() {
+  if (targetLit.size === totalTargets && totalTargets > 0) {
+    isWon = true;
+    const lvl = levels[currentLevel];
+    const par = lvl.par;
+    let stars = 1;
+    if (moves <= par) stars = 3;
+    else if (moves <= par * 1.5) stars = 2;
+
+    // Save progress
+    const prev = savedProgress[currentLevel];
+    if (!prev || !prev.completed || stars > prev.stars || moves < prev.bestMoves) {
+      savedProgress[currentLevel] = {
+        completed: true,
+        stars: Math.max(stars, prev ? prev.stars : 0),
+        bestMoves: prev && prev.bestMoves ? Math.min(moves, prev.bestMoves) : moves,
+      };
+      saveProgress();
+    }
+
+    // Show win
+    setTimeout(() => {
+      AudioSystem.win();
+      showWinOverlay(stars);
+      spawnParticles();
+    }, 400);
+  }
+}
+
+// ===== Win Overlay =====
+function showWinOverlay(stars) {
+  const overlay = document.getElementById('win-overlay');
+  const starsEl = document.getElementById('win-stars');
+  const movesEl = document.getElementById('win-moves');
+  const nextBtn = document.getElementById('btn-next-level');
+
+  starsEl.innerHTML = [1,2,3].map(i =>
+    `<span class="${i <= stars ? '' : 'empty'}">★</span>`
+  ).join('');
+  movesEl.textContent = `手数: ${moves} (目標: ${levels[currentLevel].par})`;
+  nextBtn.style.display = currentLevel < levels.length - 1 ? '' : 'none';
+
+  overlay.classList.add('active');
+}
+function hideWin() {
+  document.getElementById('win-overlay').classList.remove('active');
+}
+function nextLevel() {
+  hideWin();
+  if (currentLevel < levels.length - 1) {
+    startLevel(currentLevel + 1);
+  }
+}
+
+// ===== Particle System =====
+function spawnParticles() {
+  const canvas = document.getElementById('particle-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const particles = [];
+  const colors = ['#00d4ff', '#ff6bd5', '#00ff88', '#ffd700', '#ffffff'];
+
+  for (let i = 0; i < 80; i++) {
+    particles.push({
+      x: canvas.width / 2 + (Math.random() - 0.5) * 200,
+      y: canvas.height / 2 + (Math.random() - 0.5) * 200,
+      vx: (Math.random() - 0.5) * 10,
+      vy: (Math.random() - 0.5) * 10 - 3,
+      r: Math.random() * 4 + 1,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      life: 1,
+      decay: Math.random() * 0.015 + 0.008,
+    });
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    for (const p of particles) {
+      if (p.life <= 0) continue;
+      alive = true;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.15;
+      p.life -= p.decay;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.life;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    if (alive) requestAnimationFrame(animate);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  animate();
+}
+
+// ===== Keyboard Shortcuts =====
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'z' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undoMove(); }
+  if (e.key === 'r' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); resetLevel(); }
+  if (e.key === 'Escape') {
+    if (document.getElementById('win-overlay').classList.contains('active')) {
+      hideWin();
+    } else if (document.getElementById('game-screen').classList.contains('active')) {
+      showScreen('level-screen');
+    }
+  }
+});
+
+// Window resize handler
+window.addEventListener('resize', () => {
+  if (document.getElementById('game-screen').classList.contains('active') && !isWon) {
+    renderBoard();
+    calculateLight();
+    renderLight();
+  }
+});
+
+// ===== Start! =====
+init();
+</script>
+</body>
+</html>
