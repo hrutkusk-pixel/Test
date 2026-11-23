@@ -622,7 +622,7 @@ def main():
         f.writelines(f"file '{p}'\n" for p in parts)
     audio_in = ["-i", AUDIO] if VOICED else ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono"]
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, *audio_in,
-                    "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-ac", "2",
+                    "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-ar", "48000", "-c:a", "aac", "-b:a", "160k", "-ac", "2",
                     "-t", f"{TOTAL:.3f}", "-movflags", "+faststart", OUT], check=True)
     for p in parts + [lst]:
         os.remove(p)
