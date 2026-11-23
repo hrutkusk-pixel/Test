@@ -500,7 +500,7 @@ def render_frame(si, sc, t, gt):
     canvas.alpha_composite(VIGNETTE)
 
     label(canvas, SERIES_LABEL)
-    credit(canvas)
+    credit(canvas, si, t)
     appear = min(1.0, t / 0.45)
     lines = sc["text"]
     if v == "calm":
@@ -517,14 +517,20 @@ def render_frame(si, sc, t, gt):
 SPEAKER_COLOR = {"ずんだもん": (120, 205, 80), "四国めたん": (240, 110, 170)}
 
 
-def credit(canvas):
-    if not VOICED:
+def credit(canvas, si, t):
+    """VOICEVOX のクレジット。最後のシーンだけエンドクレジット風に出す。"""
+    if not VOICED or si != len(SCENES) - 1:
         return
+    a = min(1.0, t / 0.5)
     d = ImageDraw.Draw(canvas)
-    f = font(28, black=False)
-    s = "VOICEVOX:ずんだもん / VOICEVOX:四国めたん"
-    w = d.textlength(s, font=f)
-    d.text(((W - w) / 2, 385), s, font=f, fill=(230, 230, 240, 200), stroke_width=2, stroke_fill=(0, 0, 0, 200))
+    f = font(36, black=False)
+    rows = ["VOICEVOX:ずんだもん", "VOICEVOX:四国めたん"]
+    y = 1200
+    for s in rows:
+        w = d.textlength(s, font=f)
+        d.text(((W - w) / 2, y), s, font=f, fill=(235, 235, 245, int(235 * a)),
+               stroke_width=3, stroke_fill=(0, 0, 0, int(220 * a)))
+        y += 52
 
 
 def speaker_badge(canvas, sc, t):
