@@ -1,3 +1,4 @@
 tiktok/output/preview/
 __pycache__/
 tiktok/output/render_*/
+tiktok/assets/

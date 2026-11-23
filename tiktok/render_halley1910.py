@@ -212,6 +212,7 @@ def draw_text_block(canvas, lines, size, center_y, appear, hl_color=YELLOW, max_
             x += d.textlength(t, font=f)
         y += s * (1 + gap)
     canvas.alpha_composite(layer)
+    return center_y - total / 2  # 字幕ブロックの上端
 
 
 def ease_out(p):
@@ -457,7 +458,7 @@ def render_frame(si, sc, t, gt):
     elif v == "spectrum":
         paste_comet(canvas, (980, 1650), -15, scale=0.7)
         draw_spectrum(canvas, t)
-        text_y = 650
+        text_y = 700
     elif v == "pass":
         ex, ey = W / 2 - EARTH.width / 2, 1050
         canvas.alpha_composite(EARTH, (int(ex), int(ey)))
@@ -467,7 +468,7 @@ def render_frame(si, sc, t, gt):
     elif v == "news":
         canvas.alpha_composite(EARTH_SMALL, (int(W / 2 - 130), 1650))
         draw_news(canvas, t)
-        text_y = 650
+        text_y = 700
     elif v == "panic":
         shake = 18 * math.sin(t * 50) * (1 - p * 0.5)
         canvas = canvas.transform(canvas.size, Image.AFFINE, (1, 0, shake, 0, 1, shake * 0.6))
@@ -490,7 +491,7 @@ def render_frame(si, sc, t, gt):
     elif v == "answer":
         # 地球の大気(濃い) と 尾(薄い) の比較バー
         draw_density(canvas, t)
-        text_y = 700
+        text_y = 750
         hl = CYAN
 
     global VIGNETTE
@@ -506,8 +507,8 @@ def render_frame(si, sc, t, gt):
     if v == "calm":
         # 「……」を先に、少し間をおいてオチ
         lines = lines if t > 1.5 else lines[:1]
-    draw_text_block(canvas, lines, sc["size"], text_y, appear if v != "calm" else 1.0, hl_color=hl)
-    speaker_badge(canvas, sc, t)
+    top = draw_text_block(canvas, lines, sc["size"], text_y, appear if v != "calm" else 1.0, hl_color=hl)
+    speaker_badge(canvas, sc, t, top)
     # 進行バー(上部、UIと被らないよう細く)
     d = ImageDraw.Draw(canvas)
     d.rectangle([0, 0, int(W * gt / TOTAL), 10], fill=YELLOW + (255,))
@@ -533,7 +534,7 @@ def credit(canvas, si, t):
         y += 52
 
 
-def speaker_badge(canvas, sc, t):
+def speaker_badge(canvas, sc, t, text_top=540):
     """いま話している人の名前札(字幕の上)。"""
     for ln in sc.get("lines", []):
         if ln["start"] - 0.05 <= t <= ln["start"] + ln["dur"] + 0.1:
@@ -542,7 +543,8 @@ def speaker_badge(canvas, sc, t):
             d = ImageDraw.Draw(canvas)
             f = font(44)
             w = d.textlength(name, font=f)
-            x, y = (W - w) / 2, 450
+            # 字幕の上に余白をあけて置く(シリーズ名ラベルとも被らない位置まで)
+            x, y = (W - w) / 2, max(378, text_top - 100)
             d.rounded_rectangle([x - 34, y - 8, x + w + 34, y + 62], radius=36, fill=col + (235,))
             d.text((x, y - 4), name, font=f, fill=(255, 255, 255, 255), stroke_width=3, stroke_fill=(30, 30, 30, 255))
             return
