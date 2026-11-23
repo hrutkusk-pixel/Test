@@ -118,9 +118,36 @@ def v_teaser(c, t, p, gt, sc):
     return c, 780, YELLOW
 
 
+_PORTRAIT = None
+
+
+def portrait():
+    """ノストラダムスの肖像版画(assets/images、パブリックドメインの版画)。縦長に切り出して枠を付ける。"""
+    global _PORTRAIT
+    if _PORTRAIT is None:
+        import os
+        im = Image.open(os.path.join(E.ASSETS, "images", "nostradamus_engraving.png")).convert("RGB")
+        w, h = im.size
+        cw = int(h * 0.82)                       # 顔を中心に縦長に切り出す
+        x0 = max(0, min(w - cw, int(w * 0.50 - cw / 2)))
+        im = im.crop((x0, 0, x0 + cw, h)).resize((560, int(560 * h / cw)), Image.LANCZOS)
+        fr = Image.new("RGBA", (im.width + 28, im.height + 28), (200, 170, 110, 255))
+        fr.paste(im, (14, 14))
+        _PORTRAIT = fr
+    return _PORTRAIT
+
+
 def v_who(c, t, p, gt, sc):
-    figure(c, W / 2, 1250, 1.0)
-    E.mark_image(c, "※人物のイメージ", (60, 1700))
+    img = portrait()
+    k = E.ease_out(min(1, t / 0.5))
+    s = 0.92 + 0.08 * k + 0.02 * p          # ゆっくりズーム
+    im = img.resize((int(img.width * s), int(img.height * s)), Image.LANCZOS)
+    c.alpha_composite(im, (int(W / 2 - im.width / 2), int(1330 - im.height / 2)))
+    d = ImageDraw.Draw(c)
+    cap = "ノストラダムスの肖像（版画）"
+    f = font(36, black=False)
+    d.text(((W - d.textlength(cap, font=f)) / 2, 1330 + im.height / 2 + 16), cap, font=f, fill=(225, 225, 235, 255),
+           stroke_width=2, stroke_fill=(0, 0, 0, 255))
     return c, 650, YELLOW
 
 
