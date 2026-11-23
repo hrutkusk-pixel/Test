@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""VOICEVOX でセリフ音声を作り、効果音と合わせて1本の音声トラック + タイミング表を書き出す。
+"""VOICEVOX でセリフ音声を作り、BGM・効果音と合わせて1本の音声トラック + タイミング表を書き出す。
 
 前提: VOICEVOX ENGINE が http://127.0.0.1:50021 で起動していること
       (例: docker run -d --name vv -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest)
@@ -9,6 +9,7 @@
 import io
 import json
 import os
+import subprocess
 import sys
 import urllib.parse
 import urllib.request
@@ -76,89 +77,27 @@ def synth(speaker, text):
     return a, q["kana"]
 
 
-# ------------------------------------------------------------ 効果音(すべて数式で生成)
-rng = np.random.default_rng(0)
+# ------------------------------------------------------------ BGM・効果音(素材ファイル)
+# 素材は tiktok/assets/ に置く(再配布禁止のため git 管理外)
+#   BGM : OpenTracks「奇妙な案内人」by MATSU  https://opentracks.com/bgm/detail/12153
+#   効果音: 効果音ラボ https://soundeffect-lab.info/
+ASSETS = os.path.join(HERE, "assets")
+BGM_FILE = os.path.join(ASSETS, "bgm", "kimyou_na_annainin_MATSU.mp3")
+BGM_GAIN = 0.28        # 声がないとき
+BGM_DUCK = 0.45        # 声があるときは BGM_GAIN * BGM_DUCK まで下げる
+SE_GAIN = 0.55
 
 
-def env(n, a=0.005, r=0.3):
-    t = np.arange(n) / SR
-    return np.minimum(1, t / a) * np.exp(-t / r)
+def load_audio(path, channels):
+    """ffmpeg で読み込んで float32 (n, channels) を返す。"""
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-ac", str(channels), "-ar", str(SR),
+                          "-f", "f32le", "-"], capture_output=True, check=True).stdout
+    return np.frombuffer(raw, np.float32).reshape(-1, channels).copy()
 
 
-def sfx_whoosh(dur=0.45):
-    n = int(SR * dur)
-    noise = rng.standard_normal(n)
-    # 周波数が上がっていく簡易バンドパス(差分の重ね合わせ)
-    out = np.zeros(n)
-    t = np.arange(n) / n
-    lp = 0.0
-    for i in range(n):
-        k = 0.02 + 0.25 * t[i]
-        lp += k * (noise[i] - lp)
-        out[i] = lp
-    out = out - np.convolve(out, np.ones(30) / 30, "same")
-    out *= np.sin(np.pi * t) ** 2
-    return out / (np.abs(out).max() + 1e-9) * 0.35
-
-
-def sfx_boom(dur=1.6):
-    n = int(SR * dur)
-    t = np.arange(n) / SR
-    f = 45 + 80 * np.exp(-t * 6)
-    ph = 2 * np.pi * np.cumsum(f) / SR
-    body = np.sin(ph) * np.exp(-t * 2.2)
-    click = rng.standard_normal(n) * np.exp(-t * 40) * 0.5
-    return np.tanh((body + click) * 1.5) * 0.6
-
-
-def sfx_pop(freq=880, dur=0.35):
-    n = int(SR * dur)
-    t = np.arange(n) / SR
-    s = np.sin(2 * np.pi * freq * t) + 0.5 * np.sin(2 * np.pi * freq * 2 * t)
-    return s * env(n, 0.002, 0.08) * 0.3
-
-
-def sfx_ding(dur=1.4):
-    n = int(SR * dur)
-    t = np.arange(n) / SR
-    s = sum(a * np.sin(2 * np.pi * f * t) for f, a in [(1046.5, 1), (1568, 0.5), (2093, 0.25)])
-    return s * env(n, 0.003, 0.45) * 0.22
-
-
-def sfx_alarm(dur=3.0):
-    n = int(SR * dur)
-    t = np.arange(n) / SR
-    f = 600 + 250 * np.sign(np.sin(2 * np.pi * 2.5 * t))
-    s = np.sign(np.sin(2 * np.pi * np.cumsum(f) / SR)) * 0.5 + np.sin(2 * np.pi * np.cumsum(f) / SR) * 0.5
-    fade = np.minimum(1, t / 0.1) * np.minimum(1, (dur - t) / 0.4)
-    return s * fade * 0.08
-
-
-def sfx_drone(dur=4.0, f=55):
-    n = int(SR * dur)
-    t = np.arange(n) / SR
-    s = np.sin(2 * np.pi * f * t) + 0.6 * np.sin(2 * np.pi * f * 1.5 * t + 0.3) + 0.3 * np.sin(2 * np.pi * f * 2.01 * t)
-    fade = np.minimum(1, t / 0.8) * np.minimum(1, (dur - t) / 1.0)
-    return s * fade * 0.12
-
-
-def sfx_tape(dur=0.5):
-    n = int(SR * dur)
-    t = np.arange(n) / SR
-    crackle = rng.standard_normal(n) * (rng.random(n) > 0.7)
-    return crackle * np.minimum(1, t / 0.02) * np.exp(-t * 4) * 0.25
-
-
-def sfx_shimmer(dur=2.5):
-    n = int(SR * dur)
-    t = np.arange(n) / SR
-    s = np.zeros(n)
-    for k in range(10):
-        st = int(k * 0.12 * SR)
-        f = 1500 + 300 * k
-        seg = np.sin(2 * np.pi * f * t[: n - st]) * np.exp(-t[: n - st] * 6)
-        s[st:] += seg
-    return s * 0.05
+def se(name, gain=1.0):
+    a = load_audio(os.path.join(ASSETS, "se", name + ".mp3"), 1)[:, 0]
+    return a / (np.abs(a).max() + 1e-9) * gain
 
 
 def main():
@@ -194,36 +133,51 @@ def main():
         i = int(at * SR)
         if i < 0:
             clip, i = clip[-i:], 0
-        fx[i:i + len(clip)] += clip[: n - i]
+        m = min(len(clip), n - i)
+        fx[i:i + m] += clip[:m]
 
     S = [s["start"] for s in scenes]
-    add(sfx_boom(), 0.0)
+    sc = scenes
+    add(se("text-impact1", 0.9), 0.0)                       # つかみ
     for k in range(1, len(S)):
-        if k not in (6, 13):
-            add(sfx_whoosh(), S[k] - 0.22)
-    add(sfx_shimmer(), S[3] + 0.6)             # スペクトル
-    add(sfx_boom(1.2) * 0.7, S[6])              # パニック
-    add(sfx_alarm(scenes[6]["d"]), S[6])
-    add(sfx_tape(), S[7] + 0.1)
-    add(sfx_tape(), S[7] + 0.45)
-    for k in (8, 9, 10, 11):
-        add(sfx_pop(660 + 110 * (k - 8)), S[k] + 0.05)
-    add(sfx_pop(520), S[12] + 0.1)
-    add(sfx_drone(scenes[13]["d"] + 0.5, 49), S[13] - 0.2)   # 静寂の前のうなり
-    add(sfx_ding(), S[14] + 0.05)                # 答え合わせ
-    add(sfx_boom(0.8) * 0.5, S[15] + 0.8)        # 2061年 ドン
-    add(sfx_ding() * 0.8, S[15] + 0.8)
-    add(sfx_pop(990), S[16] + 0.05)
+        if k not in (6, 13, 14, 15):
+            add(se("highspeed-movement1", 0.35), S[k] - 0.18)  # 場面転換
+    add(se("kira1", 0.5), S[3] + 0.6)                       # スペクトル
+    add(se("emergency-alert1", 0.45), S[6])                 # パニック
+    add(se("cellophane-tape-cut1", 0.7), S[7] + 0.1)        # 目張り
+    add(se("cellophane-tape-cut1", 0.6), S[7] + 0.9)
+    for k in (8, 9, 10):
+        add(se("pa1", 0.6), S[k] + 0.05)                    # マスク・薬・傘
+    add(se("church-bell1", 0.5), S[11] + 0.05)              # 教会
+    add(se("clock-tower-bell1", 0.6), S[12] + 0.05)         # 運命の日
+    last = sc[13]["lines"][-1]
+    add(se("tin1", 0.8), S[13] + last["start"] + last["dur"] + 0.05)  # 何も起きなかった → チーン
+    add(se("correct2", 0.6), S[14] + 0.05)                  # 答え合わせ
+    add(se("text-impact3", 0.8), S[15] + 0.8)               # 2061年
+    add(se("kira1", 0.5), S[16] + 0.05)                     # 最後の質問
 
-    mix = voice * 1.0 + fx * 0.8
-    # 声が鳴っている間は効果音を少し下げる(簡易ダッキング)
-    venv = np.convolve(np.abs(voice), np.ones(2400) / 2400, "same")
-    duck = 1 - 0.45 * np.clip(venv * 20, 0, 1)
-    mix = voice + fx * 0.8 * duck
+    # BGM: 声の間は下げる(ダッキング)。「何も起きなかった」のシーンは一度止めて静寂を作る
+    venv = np.convolve(np.abs(voice), np.ones(4800) / 4800, "same")
+    talking = np.clip(venv * 25, 0, 1)
+    talking = np.convolve(talking, np.ones(9600) / 9600, "same")  # ゆっくり上下させる
+    gain = BGM_GAIN * (1 - (1 - BGM_DUCK) * talking)
+    t = np.arange(n) / SR
+    calm0, calm1 = S[13] - 0.3, S[13] + sc[13]["d"]
+    gain *= np.clip(np.maximum((calm0 - t) / 0.6, (t - calm1) / 0.8), 0, 1)
+    gain *= np.clip((total - t) / 2.0, 0, 1)                # 最後2秒でフェードアウト
+    bgm = np.zeros((n, 2), np.float32)
+    if os.path.exists(BGM_FILE):
+        b = load_audio(BGM_FILE, 2)[:n]
+        bgm[:len(b)] = b
+    else:
+        print("BGM が見つからないため BGM なしで書き出します:", BGM_FILE)
+    fx_duck = 1 - 0.35 * talking
+    mono = voice + fx * SE_GAIN * fx_duck
+    mix = mono[:, None] + bgm * gain[:, None]
     mix = mix / max(1.0, np.abs(mix).max() / 0.95)
     os.makedirs(os.path.dirname(OUT_WAV), exist_ok=True)
     with wave.open(OUT_WAV, "wb") as w:
-        w.setnchannels(1)
+        w.setnchannels(2)
         w.setsampwidth(2)
         w.setframerate(SR)
         w.writeframes((mix * 32767).astype(np.int16).tobytes())

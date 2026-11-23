@@ -3,10 +3,11 @@
 - 動画: `tiktok/output/halley1910.mp4`（1080x1920 / 30fps / H.264 / 約86秒 / ずんだもん・四国めたんの掛け合い＋効果音入り）
 - 再生成:
   1. VOICEVOX ENGINE を起動: `docker run -d --name vv -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest`
-  2. `python3 tiktok/voice_halley1910.py`（セリフ音声＋効果音 → `output/halley1910_audio.wav` と `halley1910_timing.json`）
+  2. `python3 tiktok/voice_halley1910.py`（セリフ音声＋BGM＋効果音 → `output/halley1910_audio.wav` と `halley1910_timing.json`）
   3. `python3 tiktok/render_halley1910.py`（`--preview` で各シーンの静止画だけ出す）
-- 効果音: すべてプログラムで合成（他者の音源は不使用）
-- BGM: 投稿時に TikTok アプリで付ける。**声が聞こえるよう BGM の音量は小さめ（20〜30%程度）に**
+- BGM: OpenTracks（旧DOVA-SYNDROME）「奇妙な案内人」by MATSU（https://opentracks.com/bgm/detail/12153 、作曲者条件=サイト準拠）。動画に合成済みなので **TikTok側でBGMは足さない**
+- 効果音: 効果音ラボ（https://soundeffect-lab.info/ ）。文字表示の衝撃音1・3／高速移動／警報が鳴る／セロハンテープをちぎる／パッ／教会の鐘1／魔の時計塔の鐘／チーン1／クイズ正解2／キラッ1
+- 素材ファイルは `tiktok/assets/`（再配布禁止のため git 管理外）。再生成時はここに置く
 - クレジット: 最後のシーンに「VOICEVOX:ずんだもん / VOICEVOX:四国めたん」をエンドクレジット風に表示。説明欄にも必ず書く
 - AIラベル: 合成音声のため、念のため投稿時に「AI生成コンテンツ」ラベルをオンにする
 
@@ -51,6 +52,8 @@
 #ハレー彗星 #宇宙 #宇宙の不思議 #歴史 #雑学 #外れた予言 #ずんだもん #四国めたん #fyp
 
 VOICEVOX:ずんだもん / VOICEVOX:四国めたん
+BGM: 奇妙な案内人 by MATSU（OpenTracks）
+SE: 効果音ラボ
 ```
 
 ## VOICEVOX 利用条件（2026-11-23 検索で確認・二次情報）
@@ -70,3 +73,9 @@ VOICEVOX:ずんだもん / VOICEVOX:四国めたん
 - 約76年周期・次は2061年: https://science.nasa.gov/solar-system/comets/1p-halley （近日点予測 2061年7月28日: https://www.space.com/halleys-comet-return ）
 
 ※ この環境では上記サイトを直接開けなかったため、検索結果の要約で確認した。投稿前に気になる点があれば元ページを確認してください。
+
+## BGM・効果音の利用条件（2026-11-23 各サイトの規約ページで確認）
+- OpenTracks: 個人・法人、営利・非営利問わず利用可。TikTok等のオンライン配信での利用可、収益化も可。クレジットは必須ではない（可能なら記載のお願い）。音源そのものが主役の利用（作業用BGM等）は禁止
+  - https://opentracks.com/help/articles/license-usage/
+- 効果音ラボ: 商用無料、クレジット・報告不要。再配布禁止（効果音紹介動画も不可）、直リンク禁止、AI学習用データとしての利用禁止、Content ID登録禁止
+  - https://soundeffect-lab.info/agreement/
