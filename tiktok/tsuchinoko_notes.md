@@ -1,0 +1,57 @@
+# UMA #2「捕まえたら賞金が出る日本のUMA ツチノコ」（立ち絵あり）
+
+- 動画: `tiktok/output/tsuchinoko.mp4`（約92秒）
+- 再生成: `python3 tiktok/tsuchinoko.py voice` → `preview` → `render`
+- 資料画像は「あれば使う・無ければイラスト」。置いたら `render` だけやり直せばよい
+
+## 資料画像スロット（ユーザーが用意）
+| ファイル名（tiktok/assets/images/） | 内容 | 入手先の候補 | 注意 |
+|---|---|---|---|
+| tsuchinoko_nozuchi.png | 『和漢三才図会』の「野槌蛇」の挿絵 | 国立国会図書館デジタルコレクション（公開範囲が「インターネット公開（保護期間満了）」なら申請不要） | 江戸時代の本なのでPD。出典表示を入れる |
+| tsuchinoko_birodo.jpg | ビロードスズメの幼虫の写真 | Wikimedia Commons など | CC BY / CC BY-SA の場合は作者名とライセンスをキャプションに表示 |
+| tsuchinoko_aojita.jpg | アオジタトカゲの写真 | Wikimedia Commons など | 同上 |
+- 報道写真やテレビ画面、つちのこフェスタの報道写真は使わない（著作権・肖像）
+
+## 構成
+1. つかみ: 捕まえたら賞金が出る日本のUMA
+2. 予告: 最後に正体の有力説
+3. ツチノコ＝ビール瓶のような太い胴に細いしっぽ
+4. ★江戸時代の百科事典『和漢三才図会』に「野槌蛇」として絵入りで登場（古事記のノヅチが起源の一つとも）
+5. 1970年代、オカルトブームとともにツチノコ人気
+6. 各地で懸賞金つきの捜索
+7. ★1992年、兵庫県千種町（現・宍粟市）が懸賞金2億円
+8. ★岐阜県東白川村は平成元年から毎年「つちのこフェスタ」
+9. ★賞金は100万円スタート、見つからないと1万円ずつ増え、2026年は134万円
+10. ★2022年、兵庫で見つかった「ツチノコっぽい生き物」はガの幼虫（ビロードスズメ）だった
+11. 正体の有力説: アオジタトカゲの見間違い（日本蛇族学術研究所の鳥羽通久氏）
+12. 足が短く見えにくいので太いヘビに見えるとも
+13. 決定的な証拠はまだない
+14. 賞金134万円、探しに行く？行かない？
+
+## 表現の判断メモ
+- 糸魚川市の「1億円」は出典がWebメディアのみだったため不使用
+- 千種町の2億円は「1992年に打ち出した」過去の話として扱い、現在も有効とは言わない
+- 東白川村の賞金は「毎年1万円ずつ」とされるが、年によって増えていない時期もある（2018年129万円→2024年132万円）ので、途中の年は画面に出さない
+- 「ジャンプする」「転がる」などの伝承は裏付けが取れなかったので不使用
+
+## 投稿キャプション案
+```
+捕まえたら賞金134万円！？日本のUMA「ツチノコ」
+江戸時代の百科事典にも載っていた"野槌蛇"の正体、有力説は…
+あなたは探しに行く？行かない？👇
+
+VOICEVOX:ずんだもん / VOICEVOX:四国めたん
+立ち絵:坂本アヒル
+BGM: 奇妙な案内人 by MATSU（OpenTracks）
+SE: 効果音ラボ
+
+#ツチノコ #UMA #未確認生物 #雑学 #ずんだもん
+```
+
+## 事実確認に使ったソース（2026-11-23 検索）
+- つちのこフェスタ・賞金: https://www.tokai-tv.com/tokainews/feature/article_20250505_40215 ／ https://www.fmgifu.com/blog/detail_22611_12_0_0.html ／ https://www.kankou-gifu.jp/event/detail_4567.html ／ https://www.vill.higashishirakawa.gifu.jp/files/upload/59520522-30f8-4ce9-8aff-05bfac100235.pdf
+- 千種町2億円（1992年）: https://tocana.jp/2026/09/post_299574_entry.html
+- 野槌・和漢三才図会・1970年代ブーム・アオジタトカゲ説: https://intojapanwaraku.com/rock/culture-rock/209243/ ／ https://allabout.co.jp/gm/gc/78196/2/ ／ https://toyokeizai.net/articles/-/26088/
+- ガの幼虫の例（2022年）: https://www.kobe-np.co.jp/news/sougou/202209/0015628702.shtml
+- 足が見えにくい: https://en.wikipedia.org/wiki/Tsuchinoko ／ https://cryptomundo.com/?p=6839
+- 国立国会図書館の画像利用: https://www.ndl.go.jp/jp/copy/publication/index.html

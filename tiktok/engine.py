@@ -420,6 +420,9 @@ def draw_characters(canvas, sc, t):
         blink = (t + (0.7 if name == "四国めたん" else 0)) % 3.2 < 0.12
         k = min(1.0, (t - t0) / 0.22, (t1 - t) / 0.22)
         k = ease_out(max(0.0, k))
+        if big and ln["dur"] > 3.0 and t - ln["start"] > 1.6:
+            big = False   # 長いセリフは最初だけ大きく、あとは画面の絵を見せる
+            k = 1.0
         if not big:
             im, sh = _char_img(name, expr, mouth, blink)
             y = int(1920 - CHAR_H * 0.74 * k + (1 - k) * 60)
@@ -676,3 +679,29 @@ def main(make_episode):
         render(ep)
     else:
         sys.exit("usage: voice | preview | render | all")
+
+
+# ---------------------------------------------------------------- 資料画像スロット
+IMAGES = os.path.join(ASSETS, "images")
+
+
+def image_slot(canvas, filename, cx, cy, max_w, max_h, caption=None, fallback=None, t=0.0, zoom=0.04):
+    """assets/images/<filename> があれば枠付きで表示(ゆっくりズーム)、無ければ fallback(canvas) を描く。
+    戻り値: 実画像を使ったら True。"""
+    path = os.path.join(IMAGES, filename)
+    if not os.path.exists(path):
+        if fallback:
+            fallback(canvas)
+        return False
+    im = Image.open(path).convert("RGB")
+    s = min(max_w / im.width, max_h / im.height) * (1 + zoom * min(1.0, t / 4.0))
+    im = im.resize((int(im.width * s), int(im.height * s)), Image.LANCZOS)
+    fr = Image.new("RGBA", (im.width + 20, im.height + 20), (240, 240, 235, 255))
+    fr.paste(im, (10, 10))
+    canvas.alpha_composite(fr, (int(cx - fr.width / 2), int(cy - fr.height / 2)))
+    if caption:
+        d = ImageDraw.Draw(canvas)
+        f = font(32, black=False)
+        d.text(((W - d.textlength(caption, font=f)) / 2, cy + fr.height / 2 + 10), caption, font=f,
+               fill=(225, 225, 235, 255), stroke_width=2, stroke_fill=(0, 0, 0, 255))
+    return True
