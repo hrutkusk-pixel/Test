@@ -348,14 +348,28 @@ def auto_expr(name, text):
     return "normal"
 
 
-def _char_img(name, expr, mouth, blink):
-    key = (name, expr, mouth, blink)
+CHAR_H_BIG = 1180
+CHAR_GLOW = {"ずんだもん": (120, 230, 120), "四国めたん": (255, 140, 200)}
+
+
+def auto_big(name, text):
+    """要所(短いリアクション・答え合わせ)では立ち絵を大きく出す。"""
+    if name == "ずんだもん" and len(text) <= 18:
+        return True
+    if name == "四国めたん" and (text.startswith("答え合わせ") or text.startswith("約束")):
+        return True
+    return False
+
+
+def _char_img(name, expr, mouth, blink, h=None):
+    h = h or CHAR_H
+    key = (name, expr, mouth, blink, h)
     if key not in _CHARS:
         import tachie
         im = tachie.render_state(name, expr, mouth, blink)
         im = im.crop(im.getbbox())
-        w = int(im.width * CHAR_H / im.height)
-        im = im.resize((w, CHAR_H), Image.LANCZOS)
+        w = int(im.width * h / im.height)
+        im = im.resize((w, h), Image.LANCZOS)
         sh = Image.new("RGBA", im.size, (0, 0, 0, 0))
         sh.putalpha(im.getchannel("A").point(lambda v: int(v * 0.45)))
         sh = sh.filter(ImageFilter.GaussianBlur(10))
@@ -363,14 +377,38 @@ def _char_img(name, expr, mouth, blink):
     return _CHARS[key]
 
 
+def _parse_expr(name, text, raw):
+    """LINES の3番目: "surprised" / "surprised+big" / "normal+small" など。"""
+    parts = (raw or "").split("+")
+    expr = parts[0] or auto_expr(name, text)
+    big = auto_big(name, text)
+    if "big" in parts:
+        big = True
+    if "small" in parts:
+        big = False
+    return expr, big
+
+
+_GLOW_CACHE = {}
+
+
+def _glow_img(col, r):
+    key = (col, r)
+    if key not in _GLOW_CACHE:
+        g = Image.new("RGBA", (r * 4, r * 4), (0, 0, 0, 0))
+        ImageDraw.Draw(g).ellipse([r, r, r * 3, r * 3], fill=col + (150,))
+        _GLOW_CACHE[key] = g.filter(ImageFilter.GaussianBlur(r * 0.6))
+    return _GLOW_CACHE[key]
+
+
 def draw_characters(canvas, sc, t):
-    """セリフ中の話者を画面下からスライドイン。口パク(音声の大きさ)・まばたき・表情差分つき。"""
+    """セリフ中の話者を画面下からスライドイン。口パク(音声の大きさ)・まばたき・表情差分・要所で大きく。"""
     for ln in sc.get("lines", []):
         t0, t1 = ln["start"] - 0.2, ln["start"] + ln["dur"] + 0.25
         if not (t0 <= t <= t1):
             continue
         name = ln["speaker"]
-        expr = ln.get("expr") or auto_expr(name, ln["text"])
+        expr, big = _parse_expr(name, ln["text"], ln.get("expr"))
         mouth = "closed"
         flags = ln.get("mouth")
         if flags and ln["start"] <= t < ln["start"] + ln["dur"]:
@@ -380,12 +418,30 @@ def draw_characters(canvas, sc, t):
         elif not flags and ln["start"] <= t < ln["start"] + ln["dur"]:
             mouth = "open" if int(t * 8) % 2 == 0 else "closed"
         blink = (t + (0.7 if name == "四国めたん" else 0)) % 3.2 < 0.12
-        im, sh = _char_img(name, expr, mouth, blink)
         k = min(1.0, (t - t0) / 0.22, (t1 - t) / 0.22)
         k = ease_out(max(0.0, k))
-        y = int(1920 - CHAR_H * 0.74 * k + (1 - k) * 60)
-        x = -40 if CHAR_SIDE[name] == "left" else W - im.width + 40
-        canvas.alpha_composite(sh, (x + 10, y + 14))
+        if not big:
+            im, sh = _char_img(name, expr, mouth, blink)
+            y = int(1920 - CHAR_H * 0.74 * k + (1 - k) * 60)
+            x = -40 if CHAR_SIDE[name] == "left" else W - im.width + 40
+            canvas.alpha_composite(sh, (x + 10, y + 14))
+            canvas.alpha_composite(im, (x, y))
+            continue
+        # ---- 大きく出す: ズームしながら登場、驚きは少し揺らす、背後に色の光
+        im, sh = _char_img(name, expr, mouth, blink, CHAR_H_BIG)
+        pop = 0.82 + 0.18 * k + (0.04 * math.sin(min(1, (t - t0) / 0.35) * math.pi) if t - t0 < 0.35 else 0)
+        if abs(pop - 1) > 0.005:
+            im = im.resize((int(im.width * pop), int(im.height * pop)), Image.BILINEAR)
+            sh = sh.resize(im.size, Image.BILINEAR)
+        shake = 10 * math.sin((t - t0) * 60) if expr == "surprised" and t - t0 < 0.5 else 0
+        cx = 300 if CHAR_SIDE[name] == "left" else W - 300
+        x = int(cx - im.width / 2 + shake)
+        y = int(1920 - im.height * 0.86 + (1 - k) * 200)
+        g = _glow_img(CHAR_GLOW[name], 300)
+        ga = g.copy()
+        ga.putalpha(g.getchannel("A").point(lambda v: int(v * k)))
+        canvas.alpha_composite(ga, (int(cx - g.width / 2), int(y + im.height * 0.35 - g.height / 2)))
+        canvas.alpha_composite(sh, (x + 12, y + 16))
         canvas.alpha_composite(im, (x, y))
 
 
