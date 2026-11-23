@@ -3,7 +3,9 @@
 
 使い方:  python3 tiktok/render_halley1910.py  [--preview]
   --preview : 各シーン中央のフレームをPNGで書き出すだけ(確認用)
-出力:     tiktok/output/halley1910.mp4 (音声なし。BGMはTikTokアプリで付ける)
+出力:     tiktok/output/halley1910.mp4
+  先に voice_halley1910.py を実行しておくと、ずんだもん・四国めたんの音声と効果音入りになり、
+  シーン尺も音声に合わせて伸びる。BGMはTikTokアプリで付ける。
 """
 import math
 import os
@@ -498,19 +500,61 @@ def render_frame(si, sc, t, gt):
     canvas.alpha_composite(VIGNETTE)
 
     label(canvas, SERIES_LABEL)
+    credit(canvas)
     appear = min(1.0, t / 0.45)
     lines = sc["text"]
     if v == "calm":
         # 「……」を先に、少し間をおいてオチ
-        lines = lines if t > 1.2 else lines[:1]
+        lines = lines if t > 1.5 else lines[:1]
     draw_text_block(canvas, lines, sc["size"], text_y, appear if v != "calm" else 1.0, hl_color=hl)
+    speaker_badge(canvas, sc, t)
     # 進行バー(上部、UIと被らないよう細く)
     d = ImageDraw.Draw(canvas)
     d.rectangle([0, 0, int(W * gt / TOTAL), 10], fill=YELLOW + (255,))
     return canvas.convert("RGB")
 
 
+SPEAKER_COLOR = {"ずんだもん": (120, 205, 80), "四国めたん": (240, 110, 170)}
+
+
+def credit(canvas):
+    if not VOICED:
+        return
+    d = ImageDraw.Draw(canvas)
+    f = font(28, black=False)
+    s = "VOICEVOX:ずんだもん / VOICEVOX:四国めたん"
+    w = d.textlength(s, font=f)
+    d.text(((W - w) / 2, 385), s, font=f, fill=(230, 230, 240, 200), stroke_width=2, stroke_fill=(0, 0, 0, 200))
+
+
+def speaker_badge(canvas, sc, t):
+    """いま話している人の名前札(字幕の上)。"""
+    for ln in sc.get("lines", []):
+        if ln["start"] - 0.05 <= t <= ln["start"] + ln["dur"] + 0.1:
+            name = ln["speaker"]
+            col = SPEAKER_COLOR[name]
+            d = ImageDraw.Draw(canvas)
+            f = font(44)
+            w = d.textlength(name, font=f)
+            x, y = (W - w) / 2, 450
+            d.rounded_rectangle([x - 34, y - 8, x + w + 34, y + 62], radius=36, fill=col + (235,))
+            d.text((x, y - 4), name, font=f, fill=(255, 255, 255, 255), stroke_width=3, stroke_fill=(30, 30, 30, 255))
+            return
+
+
+# 音声タイミング表があれば、シーン尺を音声に合わせる
+TIMING = os.path.join(HERE, "output", "halley1910_timing.json")
+AUDIO = os.path.join(HERE, "output", "halley1910_audio.wav")
+VOICED = os.path.exists(TIMING) and os.path.exists(AUDIO)
+if VOICED:
+    import json
+    _tm = json.load(open(TIMING))
+    assert len(_tm["scenes"]) == len(SCENES)
+    for _s, _t in zip(SCENES, _tm["scenes"]):
+        _s["d"] = _t["d"]
+        _s["lines"] = _t["lines"]
 TOTAL = sum(s["d"] for s in SCENES)
+N_FRAMES = int(round(TOTAL * FPS))
 
 
 def timeline():
@@ -520,6 +564,31 @@ def timeline():
         t0 += s["d"]
 
 
+def scene_at(gt):
+    last = None
+    for i, s, t0 in timeline():
+        last = (i, s, t0)
+        if gt < t0 + s["d"]:
+            return last
+    return last
+
+
+def render_range(args):
+    """フレーム [a, b) を動画ファイル path に書き出す(並列処理用)。"""
+    a, b, path = args
+    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
+           "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+           "-pix_fmt", "yuv420p", "-profile:v", "high", path]
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    for fi in range(a, b):
+        gt = fi / FPS
+        i, s, t0 = scene_at(gt)
+        proc.stdin.write(render_frame(i, s, gt - t0, gt).tobytes())
+    proc.stdin.close()
+    proc.wait()
+    return path
+
+
 def main():
     preview = "--preview" in sys.argv
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
@@ -527,28 +596,31 @@ def main():
         pdir = os.path.join(HERE, "output", "preview")
         os.makedirs(pdir, exist_ok=True)
         for i, s, t0 in timeline():
-            t = s["d"] * 0.7
+            t = s["lines"][0]["start"] + 0.3 if s.get("lines") else s["d"] * 0.7
+            t = max(t, s["d"] * 0.5) if s["visual"] == "calm" else t
             render_frame(i, s, t, t0 + t).save(os.path.join(pdir, f"scene{i + 1:02d}.png"))
         print("preview written:", pdir)
         return
-    n = int(round(TOTAL * FPS))
-    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
-           "-r", str(FPS), "-i", "-", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-           "-shortest", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
-           "-profile:v", "high", "-c:a", "aac", "-b:a", "64k", "-movflags", "+faststart", OUT]
-    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-    scenes = list(timeline())
-    for fi in range(n):
-        gt = fi / FPS
-        for i, s, t0 in scenes:
-            if t0 <= gt < t0 + s["d"] or i == len(scenes) - 1:
-                if t0 <= gt < t0 + s["d"]:
-                    break
-        proc.stdin.write(render_frame(i, s, gt - t0, gt).tobytes())
-        if fi % 150 == 0:
-            print(f"{fi}/{n}", flush=True)
-    proc.stdin.close()
-    proc.wait()
+    import multiprocessing as mp
+    import tempfile
+    workers = max(1, os.cpu_count() or 1)
+    tmp = tempfile.mkdtemp(prefix="render_", dir=os.path.join(HERE, "output"))
+    step = -(-N_FRAMES // workers)
+    jobs = [(k, min(k + step, N_FRAMES), os.path.join(tmp, f"part{j:02d}.mp4"))
+            for j, k in enumerate(range(0, N_FRAMES, step))]
+    print(f"{N_FRAMES} frames ({TOTAL:.1f}s) / {len(jobs)} workers", flush=True)
+    with mp.Pool(len(jobs)) as pool:
+        parts = pool.map(render_range, jobs)
+    lst = os.path.join(tmp, "list.txt")
+    with open(lst, "w") as f:
+        f.writelines(f"file '{p}'\n" for p in parts)
+    audio_in = ["-i", AUDIO] if VOICED else ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono"]
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, *audio_in,
+                    "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-ac", "2",
+                    "-t", f"{TOTAL:.3f}", "-movflags", "+faststart", OUT], check=True)
+    for p in parts + [lst]:
+        os.remove(p)
+    os.rmdir(tmp)
     print("done:", OUT, f"{TOTAL:.1f}s")
 
 
