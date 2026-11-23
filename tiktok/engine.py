@@ -265,7 +265,7 @@ class Episode:
     """
 
     def __init__(self, name, series_label, scenes, lines, visuals, sfx=None,
-                 bgm="kimyou_na_annainin_MATSU.mp3", lead=None, calm_scenes=(), credit_lines=None, speed=1.15):
+                 bgm="kimyou_na_annainin_MATSU.mp3", lead=None, calm_scenes=(), credit_lines=None, speed=1.15, characters=False):
         self.name = name
         self.series_label = series_label
         self.scenes = scenes
@@ -275,8 +275,10 @@ class Episode:
         self.bgm = os.path.join(ASSETS, "bgm", bgm) if bgm else None
         self.lead = lead or {}
         self.speed = speed
+        self.characters = characters  # 話している人の立ち絵を画面下に出す
         self.calm_scenes = set(calm_scenes)   # BGM を止めて静寂を作るシーン
-        self.credit_lines = credit_lines or ["VOICEVOX:ずんだもん", "VOICEVOX:四国めたん"]
+        self.credit_lines = credit_lines or (["VOICEVOX:ずんだもん", "VOICEVOX:四国めたん"]
+                                             + (["立ち絵:東北ずん子・ずんだもんプロジェクト公式"] if characters else []))
         self.out_mp4 = os.path.join(OUTDIR, f"{name}.mp4")
         self.out_wav = os.path.join(OUTDIR, f"{name}_audio.wav")
         self.out_json = os.path.join(OUTDIR, f"{name}_timing.json")
@@ -326,6 +328,45 @@ def speaker_badge(canvas, sc, t, text_top):
             return
 
 
+# 立ち絵(東北ずん子・ずんだもんプロジェクト公式イラスト https://zunko.jp/con_illust.html)
+CHAR_FILES = {"ずんだもん": "zunmon002.png", "四国めたん": "metan_006.png"}
+CHAR_SIDE = {"ずんだもん": "left", "四国めたん": "right"}
+CHAR_H = 700
+_CHARS = {}
+
+
+def _char_img(name):
+    if name not in _CHARS:
+        im = Image.open(os.path.join(ASSETS, "images", "chars", CHAR_FILES[name])).convert("RGBA")
+        im = im.crop(im.getbbox())
+        w = int(im.width * CHAR_H / im.height)
+        im = im.resize((w, CHAR_H), Image.LANCZOS)
+        if CHAR_SIDE[name] == "right":
+            im = im.transpose(Image.FLIP_LEFT_RIGHT)  # 画面の内側を向かせる
+        sh = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        sh.putalpha(im.getchannel("A").point(lambda v: int(v * 0.45)))
+        sh = sh.filter(ImageFilter.GaussianBlur(10))
+        _CHARS[name] = (im, sh)
+    return _CHARS[name]
+
+
+def draw_characters(canvas, sc, t):
+    """セリフ中の話者を画面下からスライドインさせる。"""
+    for ln in sc.get("lines", []):
+        t0, t1 = ln["start"] - 0.2, ln["start"] + ln["dur"] + 0.25
+        if not (t0 <= t <= t1):
+            continue
+        name = ln["speaker"]
+        im, sh = _char_img(name)
+        k = min(1.0, (t - t0) / 0.22, (t1 - t) / 0.22)
+        k = ease_out(max(0.0, k))
+        bob = abs(math.sin((t - ln["start"]) * 9)) * 10 if ln["start"] <= t <= ln["start"] + ln["dur"] else 0
+        y = int(1920 - CHAR_H * 0.78 * k - bob + (1 - k) * 60)
+        x = -60 if CHAR_SIDE[name] == "left" else W - im.width + 60
+        canvas.alpha_composite(sh, (x + 10, y + 14))
+        canvas.alpha_composite(im, (x, y))
+
+
 def credit(canvas, ep, si, t):
     if not ep.voiced or si != len(ep.scenes) - 1:
         return
@@ -356,6 +397,8 @@ def render_frame(ep, si, sc, t, gt):
     if reveal and t < reveal[1]:
         lines = lines[:reveal[0]]
     appear = 1.0 if reveal else min(1.0, t / 0.45)
+    if ep.characters:
+        draw_characters(canvas, sc, t)
     top = draw_text_block(canvas, lines, sc["size"], text_y, appear, hl_color=hl)
     speaker_badge(canvas, sc, t, top)
     d = ImageDraw.Draw(canvas)
