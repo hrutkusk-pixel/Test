@@ -278,7 +278,7 @@ class Episode:
         self.characters = characters  # 話している人の立ち絵を画面下に出す
         self.calm_scenes = set(calm_scenes)   # BGM を止めて静寂を作るシーン
         self.credit_lines = credit_lines or (["VOICEVOX:ずんだもん", "VOICEVOX:四国めたん"]
-                                             + (["立ち絵:東北ずん子・ずんだもんプロジェクト公式"] if characters else []))
+                                             + (["立ち絵:坂本アヒル"] if characters else []))
         self.out_mp4 = os.path.join(OUTDIR, f"{name}.mp4")
         self.out_wav = os.path.join(OUTDIR, f"{name}_audio.wav")
         self.out_json = os.path.join(OUTDIR, f"{name}_timing.json")
@@ -328,41 +328,63 @@ def speaker_badge(canvas, sc, t, text_top):
             return
 
 
-# 立ち絵(東北ずん子・ずんだもんプロジェクト公式イラスト https://zunko.jp/con_illust.html)
-CHAR_FILES = {"ずんだもん": "zunmon002.png", "四国めたん": "metan_006.png"}
+# 立ち絵: 坂本アヒル氏の立ち絵素材(PSD, 表情差分・口パク対応)。公式ガイドライン準拠で利用
+#   素材: assets/images/chars/*.psd(git 管理外)。合成は tachie.py
 CHAR_SIDE = {"ずんだもん": "left", "四国めたん": "right"}
-CHAR_H = 700
+CHAR_H = 780
 _CHARS = {}
 
 
-def _char_img(name):
-    if name not in _CHARS:
-        im = Image.open(os.path.join(ASSETS, "images", "chars", CHAR_FILES[name])).convert("RGBA")
+def auto_expr(name, text):
+    """セリフから表情を推定(LINES で明示した場合はそちらを優先)。"""
+    if "？" in text and "！" in text or "!?" in text:
+        return "surprised"
+    if "…" in text:
+        return "troubled" if name == "ずんだもん" else "normal"
+    if name == "四国めたん" and (text.startswith("答え合わせ") or text.startswith("約束")):
+        return "smug"
+    if name == "ずんだもん" and text.endswith("のだ！"):
+        return "happy"
+    return "normal"
+
+
+def _char_img(name, expr, mouth, blink):
+    key = (name, expr, mouth, blink)
+    if key not in _CHARS:
+        import tachie
+        im = tachie.render_state(name, expr, mouth, blink)
         im = im.crop(im.getbbox())
         w = int(im.width * CHAR_H / im.height)
         im = im.resize((w, CHAR_H), Image.LANCZOS)
-        if CHAR_SIDE[name] == "right":
-            im = im.transpose(Image.FLIP_LEFT_RIGHT)  # 画面の内側を向かせる
         sh = Image.new("RGBA", im.size, (0, 0, 0, 0))
         sh.putalpha(im.getchannel("A").point(lambda v: int(v * 0.45)))
         sh = sh.filter(ImageFilter.GaussianBlur(10))
-        _CHARS[name] = (im, sh)
-    return _CHARS[name]
+        _CHARS[key] = (im, sh)
+    return _CHARS[key]
 
 
 def draw_characters(canvas, sc, t):
-    """セリフ中の話者を画面下からスライドインさせる。"""
+    """セリフ中の話者を画面下からスライドイン。口パク(音声の大きさ)・まばたき・表情差分つき。"""
     for ln in sc.get("lines", []):
         t0, t1 = ln["start"] - 0.2, ln["start"] + ln["dur"] + 0.25
         if not (t0 <= t <= t1):
             continue
         name = ln["speaker"]
-        im, sh = _char_img(name)
+        expr = ln.get("expr") or auto_expr(name, ln["text"])
+        mouth = "closed"
+        flags = ln.get("mouth")
+        if flags and ln["start"] <= t < ln["start"] + ln["dur"]:
+            i = int((t - ln["start"]) * FPS)
+            if 0 <= i < len(flags) and flags[i]:
+                mouth = "open"
+        elif not flags and ln["start"] <= t < ln["start"] + ln["dur"]:
+            mouth = "open" if int(t * 8) % 2 == 0 else "closed"
+        blink = (t + (0.7 if name == "四国めたん" else 0)) % 3.2 < 0.12
+        im, sh = _char_img(name, expr, mouth, blink)
         k = min(1.0, (t - t0) / 0.22, (t1 - t) / 0.22)
         k = ease_out(max(0.0, k))
-        bob = abs(math.sin((t - ln["start"]) * 9)) * 10 if ln["start"] <= t <= ln["start"] + ln["dur"] else 0
-        y = int(1920 - CHAR_H * 0.78 * k - bob + (1 - k) * 60)
-        x = -60 if CHAR_SIDE[name] == "left" else W - im.width + 60
+        y = int(1920 - CHAR_H * 0.74 * k + (1 - k) * 60)
+        x = -40 if CHAR_SIDE[name] == "left" else W - im.width + 40
         canvas.alpha_composite(sh, (x + 10, y + 14))
         canvas.alpha_composite(im, (x, y))
 
@@ -512,10 +534,18 @@ def voice(ep):
     for si, lines in enumerate(ep.lines):
         t = t0 + ep.lead.get(si, 0.0) + 0.1
         entries = []
-        for spk, text in lines:
+        for item in lines:
+            spk, text = item[0], item[1]
+            expr = item[2] if len(item) > 2 else None
             a, kana = synth(spk, text, ep.speed)
             dur = len(a) / SR
-            entries.append(dict(speaker=NAME[spk], text=text, start=round(t - t0, 3), dur=round(dur, 3)))
+            # 口パク: 1フレームごとの音量で開閉
+            hop = SR // FPS
+            rms = [float(np.sqrt(np.mean(a[i:i + hop] ** 2))) for i in range(0, len(a), hop)]
+            thr = max(rms) * 0.18 if rms else 1
+            mouth = [1 if r > thr else 0 for r in rms]
+            entries.append(dict(speaker=NAME[spk], text=text, start=round(t - t0, 3), dur=round(dur, 3),
+                                expr=expr, mouth=mouth))
             clips.append((t, a))
             print(f"[{si + 1:02d}] {NAME[spk]} {dur:4.1f}s  {kana}")
             t += dur + GAP_LINE
