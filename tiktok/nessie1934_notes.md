@@ -2,7 +2,7 @@
 
 - 動画: `tiktok/output/nessie1934.mp4`（約99秒）
 - 再生成: `python3 tiktok/nessie1934.py voice` → `preview` → `render`
-- 実際の写真を使う場合: `tiktok/assets/images/surgeons_photo.jpg` に置いて `render` だけやり直す（無ければイラスト）
+- 写真: ユーザー提供の「外科医の写真」（クロップ版）を `tiktok/assets/images/surgeons_photo.jpg` に配置して使用（git 管理外）
 
 ## 構成
 1. つかみ: ネッシーの一番有名な写真、実は60年後に自白されていた
