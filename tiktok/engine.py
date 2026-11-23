@@ -507,8 +507,16 @@ def voice(ep):
     gain *= np.clip((total - tt) / 2.0, 0, 1)
     bgm = np.zeros((n, 2), np.float32)
     if ep.bgm and os.path.exists(ep.bgm):
-        b = load_audio(ep.bgm, 2)[:n]
-        bgm[:len(b)] = b
+        b = load_audio(ep.bgm, 2)
+        # 動画より短い曲はつなげてループ(つなぎ目は0.5秒クロスフェード)
+        xf = int(SR * 0.5)
+        out = b.copy()
+        while len(out) < n and len(b) > 2 * xf:
+            ramp = np.linspace(0, 1, xf, dtype=np.float32)[:, None]
+            head = out[-xf:] * (1 - ramp) + b[:xf] * ramp
+            out = np.concatenate([out[:-xf], head, b[xf:]])
+        out = out[:n]
+        bgm[:len(out)] = out
     else:
         print("BGM なしで書き出します:", ep.bgm)
     mix = (vo + fx * SE_GAIN * (1 - 0.35 * talking))[:, None] + bgm * gain[:, None]
