@@ -53,8 +53,24 @@ LINES = [
 
 
 # ---------------------------------------------------------------- 部品(立ち絵が下に出るので絵は 980〜1450 付近)
+_IRASUTOYA = None
+
+
 def tsuchinoko(c, cx, cy, s=1.0, t=0.0, col=(120, 100, 70)):
-    """ツチノコのイラスト(イメージ)。"""
+    """ツチノコのイラスト。いらすとや素材(assets/images/irasutoya_tsuchinoko.png)があればそれを使う。
+    いらすとや規約: 商用の動画は1本につき20点まで、クレジット不要 https://www.irasutoya.com/p/terms.html"""
+    global _IRASUTOYA
+    import os
+    path = os.path.join(E.IMAGES, "irasutoya_tsuchinoko.png")
+    if os.path.exists(path):
+        if _IRASUTOYA is None:
+            from PIL import Image
+            _IRASUTOYA = Image.open(path).convert("RGBA")
+        size = max(8, int(440 * s))
+        im = _IRASUTOYA.resize((size, size))
+        bob = math.sin(t * 3) * 6
+        c.alpha_composite(im, (int(cx - size / 2), int(cy - size / 2 + bob)))
+        return
     d = ImageDraw.Draw(c)
     bob = math.sin(t * 3) * 6
     d.ellipse([cx - 190 * s, cy - 70 * s + bob, cx + 150 * s, cy + 70 * s + bob], fill=col + (255,), outline=(60, 45, 30, 255), width=5)

@@ -63,3 +63,9 @@ SE: 効果音ラボ
 - 新しい型: 0秒目から大きい立ち絵＋動く絵、つかみは短い2行（「134万円の懸賞金／正体はトカゲ？」）、上のラベルなし、結論を先に言う、見せ場を絞る、話速1.3、エンドカード付き
 - 再生成: `python3 tiktok/tsuchinoko_short.py voice` → `render`
 - 比べる指標: 0:02時点の残存率、平均視聴時間、フル視聴率、新しいフォロワー
+
+## ツチノコのイラスト（いらすとや）
+- 素材: 「ツチノコのイラスト」 https://www.irasutoya.com/2015/01/blog-post_315.html （assets/images/irasutoya_tsuchinoko.png、git 管理外）
+- 規約（2026-11-24 公式ページで確認 https://www.irasutoya.com/p/terms.html ・ https://www.irasutoya.com/p/faq.html ）:
+  個人・法人・商用・非商用問わず無料。YouTube等の動画は「1つの動画にサムネイルを含め20点以内」なら商用（収益化）も可。クレジット不要。著作権は放棄していない。素材の再配布・販売、公序良俗に反する利用等は不可
+- この動画で使っているいらすとや素材: 1点
