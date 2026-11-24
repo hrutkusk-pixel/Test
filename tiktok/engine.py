@@ -719,7 +719,7 @@ def main(make_episode):
 IMAGES = os.path.join(ASSETS, "images")
 
 
-def image_slot(canvas, filename, cx, cy, max_w, max_h, caption=None, fallback=None, t=0.0, zoom=0.04):
+def image_slot(canvas, filename, cx, cy, max_w, max_h, caption=None, fallback=None, t=0.0, zoom=0.04, credit=None):
     """assets/images/<filename> があれば枠付きで表示(ゆっくりズーム)、無ければ fallback(canvas) を描く。
     戻り値: 実画像を使ったら True。"""
     path = os.path.join(IMAGES, filename)
@@ -732,6 +732,12 @@ def image_slot(canvas, filename, cx, cy, max_w, max_h, caption=None, fallback=No
     im = im.resize((int(im.width * s), int(im.height * s)), Image.LANCZOS)
     fr = Image.new("RGBA", (im.width + 20, im.height + 20), (240, 240, 235, 255))
     fr.paste(im, (10, 10))
+    if credit:  # 写真の左下に小さくクレジット(作者・ライセンス)
+        fd = ImageDraw.Draw(fr)
+        cf = font(24, black=False)
+        tw = fd.textlength(credit, font=cf)
+        fd.rectangle([10, fr.height - 10 - 38, 10 + tw + 20, fr.height - 10], fill=(0, 0, 0, 170))
+        fd.text((20, fr.height - 10 - 34), credit, font=cf, fill=(240, 240, 240, 255))
     canvas.alpha_composite(fr, (int(cx - fr.width / 2), int(cy - fr.height / 2)))
     if caption:
         d = ImageDraw.Draw(canvas)

@@ -216,7 +216,8 @@ def skink(cv, t=0.0):
 
 
 def v_aojita(c, t, p, gt, sc):
-    E.image_slot(c, "tsuchinoko_aojita.jpg", W / 2, 1210, 820, 480, "アオジタトカゲ", lambda cv: skink(cv, t), t)
+    E.image_slot(c, "tsuchinoko_aojita.jpg", W / 2, 1160, 880, 470, "アオジタトカゲ", lambda cv: skink(cv, t), t,
+                 credit="Photo: Michael Gäbler / CC BY-SA 3.0（トリミング）")
     return c, 650, CYAN
 
 

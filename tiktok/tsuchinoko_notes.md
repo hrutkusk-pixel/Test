@@ -8,7 +8,7 @@
 | ファイル名（tiktok/assets/images/） | 内容 | 入手先の候補 | 注意 |
 |---|---|---|---|
 | tsuchinoko_nozuchi.png | 『和漢三才図会』の「野槌蛇」の挿絵 | **配置済み**: 国立国会図書館デジタルコレクション『和漢三才図会 中之巻』（明18, info:ndljp/pid/898161, 利用条件 PDM）コマ148 左ページ（巻45 竜蛇部）から切り出し | パブリックドメイン。動画内に「出典：国立国会図書館」と表示 |
-| tsuchinoko_birodo.jpg | ビロードスズメの幼虫の写真 | Wikimedia Commons など | CC BY / CC BY-SA の場合は作者名とライセンスをキャプションに表示 |
+| tsuchinoko_birodo.jpg | ビロードスズメの幼虫の写真（未配置：成虫写真 https://www.eol.org/media/29390319 は場面と合わないため不使用） | Wikimedia Commons など | CC BY / CC BY-SA の場合は作者名とライセンスをキャプションに表示 |
 | tsuchinoko_aojita.jpg | アオジタトカゲの写真 | Wikimedia Commons など | 同上 |
 - 報道写真やテレビ画面、つちのこフェスタの報道写真は使わない（著作権・肖像）
 
