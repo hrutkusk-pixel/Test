@@ -55,3 +55,9 @@ SE: 効果音ラボ
 - ガの幼虫の例（2022年）: https://www.kobe-np.co.jp/news/sougou/202209/0015628702.shtml
 - 足が見えにくい: https://en.wikipedia.org/wiki/Tsuchinoko ／ https://cryptomundo.com/?p=6839
 - 国立国会図書館の画像利用: https://www.ndl.go.jp/jp/copy/publication/index.html
+
+## 短い版（新しい型のテスト）: `tiktok/output/tsuchinoko_short.mp4`（約51秒）
+- 背景: 投稿済み動画の分析で、視聴者の約半分が0:02で離脱、平均視聴は約13〜16秒（動画の約16%）、おすすめ流入は約90〜98%
+- 新しい型: 0秒目から大きい立ち絵＋動く絵、つかみは短い2行（「134万円の懸賞金／正体はトカゲ？」）、上のラベルなし、結論を先に言う、見せ場を絞る、話速1.3、エンドカード付き
+- 再生成: `python3 tiktok/tsuchinoko_short.py voice` → `render`
+- 比べる指標: 0:02時点の残存率、平均視聴時間、フル視聴率、新しいフォロワー

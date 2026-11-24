@@ -281,7 +281,7 @@ class Episode:
     """
 
     def __init__(self, name, series_label, scenes, lines, visuals, sfx=None,
-                 bgm="kimyou_na_annainin_MATSU.mp3", lead=None, calm_scenes=(), credit_lines=None, speed=1.15, characters=False, endcard=False, next_title=None):
+                 bgm="kimyou_na_annainin_MATSU.mp3", lead=None, calm_scenes=(), credit_lines=None, speed=1.15, characters=False, endcard=False, next_title=None, hook_mode=False):
         self.name = name
         self.series_label = series_label
         self.scenes = scenes
@@ -292,6 +292,7 @@ class Episode:
         self.lead = lead or {}
         self.speed = speed
         self.characters = characters  # 話している人の立ち絵を画面下に出す
+        self.hook_mode = hook_mode    # 最初のシーン: ラベルなし・字幕は即表示・立ち絵は大きいまま
         self.calm_scenes = set(calm_scenes)   # BGM を止めて静寂を作るシーン
         self.credit_lines = credit_lines or (["VOICEVOX:ずんだもん", "VOICEVOX:四国めたん"]
                                              + (["立ち絵:坂本アヒル"] if characters else []))
@@ -450,7 +451,8 @@ def draw_characters(canvas, sc, t):
         blink = (t + (0.7 if name == "四国めたん" else 0)) % 3.2 < 0.12
         k = min(1.0, (t - t0) / 0.22, (t1 - t) / 0.22)
         k = ease_out(max(0.0, k))
-        if big and ln["dur"] > 3.0 and t - ln["start"] > 1.6:
+        hold = "hold" in (ln.get("expr") or "")
+        if big and not hold and ln["dur"] > 3.0 and t - ln["start"] > 1.6:
             big = False   # 長いセリフは最初だけ大きく、あとは画面の絵を見せる
             k = 1.0
         if not big:
@@ -501,13 +503,15 @@ def render_frame(ep, si, sc, t, gt):
         _VIGNETTE = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         vignette(_VIGNETTE, 0.55)
     canvas.alpha_composite(_VIGNETTE)
-    label(canvas, ep.series_label)
+    hook = ep.hook_mode and si == 0
+    if not hook:
+        label(canvas, ep.series_label)
     credit(canvas, ep, si, t)
     lines = sc["text"]
     reveal = sc.get("reveal")  # 例: (1, 1.5) → 1.5秒までは先頭1行だけ
     if reveal and t < reveal[1]:
         lines = lines[:reveal[0]]
-    appear = 1.0 if reveal else min(1.0, t / 0.45)
+    appear = 1.0 if (reveal or hook) else min(1.0, t / 0.45)
     if ep.characters:
         draw_characters(canvas, sc, t)
     top = draw_text_block(canvas, lines, sc["size"], text_y, appear, hl_color=hl)
