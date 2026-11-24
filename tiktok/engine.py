@@ -254,6 +254,22 @@ def mark_image(canvas, text="※イメージ", xy=(60, 1640)):
     d.text(xy, text, font=font(32, black=False), fill=(220, 220, 230, 220), stroke_width=2, stroke_fill=(0, 0, 0, 200))
 
 
+def endcard_visual(c, t, p, gt, sc):
+    """エンドカード: フォローボタン風の絵と、右側(TikTokのフォローボタン)を指す矢印。"""
+    d = ImageDraw.Draw(c)
+    pulse = 1 + 0.06 * math.sin(t * 7)
+    w, h = 520 * pulse, 150 * pulse
+    cx, cy = W / 2, 900
+    d.rounded_rectangle([cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2], radius=40, fill=(254, 44, 85, 255))
+    f = font(int(76 * pulse))
+    s = "＋ フォロー"
+    d.text((cx - d.textlength(s, font=f) / 2, cy - 76 * pulse * 0.66), s, font=f, fill=(255, 255, 255, 255))
+    ax = 880 + 25 * math.sin(t * 6)
+    d.polygon([(ax, 1020), (ax + 90, 1060), (ax, 1100)], fill=YELLOW + (255,))
+    d.line([ax - 120, 1060, ax, 1060], fill=YELLOW + (255,), width=18)
+    return c, 640, YELLOW
+
+
 # ---------------------------------------------------------------- エピソード定義
 class Episode:
     """1本の動画の設定。
@@ -265,7 +281,7 @@ class Episode:
     """
 
     def __init__(self, name, series_label, scenes, lines, visuals, sfx=None,
-                 bgm="kimyou_na_annainin_MATSU.mp3", lead=None, calm_scenes=(), credit_lines=None, speed=1.15, characters=False):
+                 bgm="kimyou_na_annainin_MATSU.mp3", lead=None, calm_scenes=(), credit_lines=None, speed=1.15, characters=False, endcard=False, next_title=None):
         self.name = name
         self.series_label = series_label
         self.scenes = scenes
@@ -282,13 +298,27 @@ class Episode:
         self.out_mp4 = os.path.join(OUTDIR, f"{name}.mp4")
         self.out_wav = os.path.join(OUTDIR, f"{name}_audio.wav")
         self.out_json = os.path.join(OUTDIR, f"{name}_timing.json")
+        if endcard:
+            # 最後に「フォローで続きを」+ 次回予告(next_title)を自動で付ける
+            scenes = scenes + [dict(d=3.5, visual="_endcard", size=74,
+                                    text=["[フォロー]すると", "次の不思議も見られる"] + ([f"次回：{next_title}"] if next_title else []))]
+            el = [(Z, "フォローすると、次の不思議も見られるのだ！", "happy+small")]
+            if next_title:
+                el.append((M, f"次回は、{next_title}よ。お楽しみに。", "smug+small"))
+            lines = lines + [el]
+            visuals = dict(visuals)
+            visuals.setdefault("_endcard", endcard_visual)
+            self.scenes, self.lines, self.visuals = scenes, lines, visuals
         assert len(scenes) == len(lines)
         for s in scenes:
             s.setdefault("min_d", s["d"])  # 絵を見せる最低尺(音声が短くてもこれ以上)
         self.voiced = os.path.exists(self.out_json) and os.path.exists(self.out_wav)
         if self.voiced:
             tm = json.load(open(self.out_json))
-            assert len(tm["scenes"]) == len(scenes), "台本が変わったので voice をやり直してください"
+            if len(tm["scenes"]) != len(scenes):
+                print("※台本が変わっています。voice をやり直してください")
+                self.voiced = False
+        if self.voiced:
             for s, t in zip(scenes, tm["scenes"]):
                 s["d"] = t["d"]
                 s["lines"] = t["lines"]

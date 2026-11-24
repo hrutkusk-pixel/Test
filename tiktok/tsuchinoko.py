@@ -263,7 +263,7 @@ def sfx(add, se, sc):
 
 def make_episode():
     return E.Episode("tsuchinoko", "UMA #2", [dict(s) for s in SCENES], LINES, VISUALS, sfx=sfx, speed=1.22,
-                     characters=True)
+                     characters=True, endcard=True)
 
 
 if __name__ == "__main__":
