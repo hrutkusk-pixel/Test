@@ -125,7 +125,7 @@ def v_nozuchi(c, t, p, gt, sc):
         tsuchinoko(cv, 560, 1220, 0.9, 0, (90, 80, 70))
         d.text((240, 1000), "野槌蛇", font=font(56), fill=(60, 40, 20, 255))
         E.mark_image(cv, "※挿絵のイメージ", (60, 1470))
-    E.image_slot(c, "tsuchinoko_nozuchi.png", W / 2, 1210, 820, 480, "『和漢三才図会』より「野槌蛇」", fb, t)
+    E.image_slot(c, "tsuchinoko_nozuchi.png", W / 2 - 110, 1190, 820, 720, "『和漢三才図会』野槌蛇（出典：国立国会図書館）", fb, t)
     return c, 660, YELLOW
 
 

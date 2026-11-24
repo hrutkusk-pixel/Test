@@ -736,6 +736,8 @@ def image_slot(canvas, filename, cx, cy, max_w, max_h, caption=None, fallback=No
     if caption:
         d = ImageDraw.Draw(canvas)
         f = font(32, black=False)
-        d.text(((W - d.textlength(caption, font=f)) / 2, cy + fr.height / 2 + 10), caption, font=f,
+        cw = d.textlength(caption, font=f)
+        cxx = min(max(cx, cw / 2 + 20), W - cw / 2 - 20)   # 画像の下中央(画面からはみ出さない範囲)
+        d.text((cxx - cw / 2, cy + fr.height / 2 + 10), caption, font=f,
                fill=(225, 225, 235, 255), stroke_width=2, stroke_fill=(0, 0, 0, 255))
     return True
