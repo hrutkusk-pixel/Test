@@ -194,7 +194,8 @@ def caterpillar(cv):
 
 
 def v_birodo(c, t, p, gt, sc):
-    E.image_slot(c, "tsuchinoko_birodo.jpg", W / 2, 1210, 820, 480, "ビロードスズメの幼虫", caterpillar, t)
+    E.image_slot(c, "tsuchinoko_birodo.jpg", W / 2, 1160, 880, 470, "ビロードスズメの幼虫", caterpillar, t,
+                 credit="※AI生成イメージ")
     return c, 650, YELLOW
 
 
